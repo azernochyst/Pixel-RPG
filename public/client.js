@@ -23,18 +23,13 @@ socket.on("players", (data) => {
 });
 
 /* =========================
-   CAMERA
-========================= */
-let camera = { x: 0, y: 0 };
-
-/* =========================
-   BACKGROUND
+   BACKGROUND IMAGE
 ========================= */
 const bg = new Image();
 bg.src = "background.png";
 
 /* =========================
-   MOVEMENT
+   PC MOVEMENT
 ========================= */
 window.addEventListener("keydown", (e) => {
     const speed = 10;
@@ -53,11 +48,7 @@ window.addEventListener("keydown", (e) => {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // CAMERA FOLLOW
-    camera.x = me.x - canvas.width / 2;
-    camera.y = me.y - canvas.height / 2;
-
-    // BACKGROUND (SAFE)
+    // BACKGROUND (IMAGE)
     if (bg.complete && bg.naturalWidth > 0) {
         ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
     } else {
@@ -69,19 +60,16 @@ function draw() {
     for (const id in players) {
         const p = players[id];
 
-        const x = p.x - camera.x;
-        const y = p.y - camera.y;
-
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
-        ctx.fillRect(x, y, 32, 32);
+        ctx.fillRect(p.x, p.y, 32, 32);
 
         ctx.fillStyle = "white";
         ctx.font = "12px Arial";
-        ctx.fillText(p.name || "Player", x, y - 5);
+        ctx.fillText(p.name || "Player", p.x, p.y - 5);
 
         if (p.bubble && Date.now() - p.bubbleTime < 3000) {
             ctx.fillStyle = "yellow";
-            ctx.fillText(p.bubble, x, y - 20);
+            ctx.fillText(p.bubble, p.x, p.y - 20);
         }
     }
 
@@ -91,7 +79,7 @@ function draw() {
 draw();
 
 /* =========================
-   CHAT
+   CHAT (TOP RIGHT)
 ========================= */
 const chatBox = document.createElement("div");
 chatBox.style.position = "fixed";
@@ -111,6 +99,7 @@ document.body.appendChild(chatBox);
 const input = document.createElement("input");
 input.type = "text";
 input.placeholder = "Chat...";
+
 input.style.position = "fixed";
 input.style.top = "170px";
 input.style.right = "10px";
@@ -140,7 +129,7 @@ socket.on("chat", (data) => {
 });
 
 /* =========================
-   MOBILE CONTROLS
+   MOBILE CONTROLS (BOTTOM LEFT)
 ========================= */
 function createButton(text, left, bottom, onDown) {
     const btn = document.createElement("button");
