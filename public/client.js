@@ -23,6 +23,14 @@ socket.on("players", (data) => {
 });
 
 /* =========================
+   WORLD SIZE (MAP LIMIT)
+========================= */
+const world = {
+    width: 2000,
+    height: 2000
+};
+
+/* =========================
    CAMERA
 ========================= */
 let camera = { x: 0, y: 0 };
@@ -57,9 +65,17 @@ function draw() {
     camera.x = me.x - canvas.width / 2;
     camera.y = me.y - canvas.height / 2;
 
-    // BACKGROUND
+    // ❗ CAMERA CLAMP (NE MENJEN KI A MAPBÓL)
+    camera.x = Math.max(0, Math.min(camera.x, world.width - canvas.width));
+    camera.y = Math.max(0, Math.min(camera.y, world.height - canvas.height));
+
+    // BACKGROUND (TÖLTSE KI A TELJES MAPOT)
     if (bg.complete && bg.naturalWidth > 0) {
-        ctx.drawImage(bg, -camera.x, -camera.y, canvas.width, canvas.height);
+        for (let x = 0; x < world.width; x += bg.width) {
+            for (let y = 0; y < world.height; y += bg.height) {
+                ctx.drawImage(bg, x - camera.x, y - camera.y);
+            }
+        }
     } else {
         ctx.fillStyle = "#2e7d32";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -89,100 +105,3 @@ function draw() {
 }
 
 draw();
-
-/* =========================
-   CHAT (TOP RIGHT)
-========================= */
-const chatBox = document.createElement("div");
-chatBox.style.position = "fixed";
-chatBox.style.top = "10px";
-chatBox.style.right = "10px";
-chatBox.style.width = "250px";
-chatBox.style.height = "150px";
-chatBox.style.overflowY = "auto";
-chatBox.style.background = "rgba(0,0,0,0.5)";
-chatBox.style.color = "white";
-chatBox.style.padding = "5px";
-chatBox.style.fontSize = "12px";
-chatBox.style.zIndex = "1000";
-
-document.body.appendChild(chatBox);
-
-const input = document.createElement("input");
-input.type = "text";
-input.placeholder = "Chat...";
-input.style.position = "fixed";
-input.style.top = "170px";
-input.style.right = "10px";
-input.style.width = "250px";
-input.style.zIndex = "1000";
-
-document.body.appendChild(input);
-
-input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && input.value.trim() !== "") {
-        socket.emit("chat", input.value);
-        input.value = "";
-    }
-});
-
-socket.on("chat", (data) => {
-    const msg = document.createElement("div");
-    msg.textContent = data.name + ": " + data.msg;
-
-    chatBox.appendChild(msg);
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    if (players[data.id]) {
-        players[data.id].bubble = data.msg;
-        players[data.id].bubbleTime = Date.now();
-    }
-});
-
-/* =========================
-   MOBILE CONTROLS
-========================= */
-function createButton(text, left, bottom, onDown) {
-    const btn = document.createElement("button");
-    btn.textContent = text;
-
-    btn.style.position = "fixed";
-    btn.style.left = left + "px";
-    btn.style.bottom = bottom + "px";
-    btn.style.width = "60px";
-    btn.style.height = "60px";
-    btn.style.fontSize = "16px";
-    btn.style.zIndex = "1000";
-    btn.style.opacity = "0.6";
-
-    document.body.appendChild(btn);
-
-    btn.addEventListener("touchstart", (e) => {
-        e.preventDefault();
-        onDown();
-    });
-
-    btn.addEventListener("mousedown", onDown);
-}
-
-const speed = 10;
-
-createButton("W", 80, 140, () => {
-    me.y -= speed;
-    socket.emit("move", me);
-});
-
-createButton("S", 80, 20, () => {
-    me.y += speed;
-    socket.emit("move", me);
-});
-
-createButton("A", 20, 80, () => {
-    me.x -= speed;
-    socket.emit("move", me);
-});
-
-createButton("D", 140, 80, () => {
-    me.x += speed;
-    socket.emit("move", me);
-});
