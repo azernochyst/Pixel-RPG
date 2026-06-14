@@ -1,6 +1,6 @@
 const socket = io();
 
-let myName = prompt("Add meg a neved:");
+let myName = prompt("Your nickname:");
 if (!myName || myName.trim() === "") myName = "Player";
 
 socket.emit("setName", myName);
@@ -42,28 +42,37 @@ window.addEventListener("keydown", (e) => {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = "#2e7d32";
+    // Füves háttér
+    ctx.fillStyle = "#4caf50";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    for (const id in players) {
-        const p = players[id];
+    // Fű mintázat
+    for (let x = 0; x < canvas.width; x += 40) {
+        for (let y = 0; y < canvas.height; y += 40) {
 
-        ctx.fillStyle = (id === socket.id) ? "red" : "blue";
-        ctx.fillRect(p.x, p.y, 32, 32);
+            const r = (x * 13 + y * 7) % 3;
 
-        ctx.fillStyle = "white";
-        ctx.font = "12px Arial";
-        ctx.fillText(p.name || "Player", p.x, p.y - 5);
+            if (r === 0) ctx.fillStyle = "#5dbb63";
+            if (r === 1) ctx.fillStyle = "#4caf50";
+            if (r === 2) ctx.fillStyle = "#43a047";
 
-        if (p.bubble && Date.now() - p.bubbleTime < 3000) {
-            ctx.fillStyle = "yellow";
-            ctx.fillText(p.bubble, p.x, p.y - 20);
+            ctx.fillRect(x, y, 40, 40);
         }
     }
 
-    requestAnimationFrame(draw);
-}
-draw();
+    // Kövek + virágok
+    for (let i = 0; i < 60; i++) {
+
+        const x = (i * 137) % canvas.width;
+        const y = (i * 211) % canvas.height;
+
+        ctx.fillStyle = "#777";
+        ctx.fillRect(x, y, 4, 4);
+
+        ctx.fillStyle = "#ffeb3b";
+        ctx.fillRect(x + 8, y + 8, 3, 3);
+    }
+
     // Játékosok
     for (const id in players) {
         const p = players[id];
@@ -83,6 +92,7 @@ draw();
 
     requestAnimationFrame(draw);
 }
+
 draw();
 
 /* =========================
