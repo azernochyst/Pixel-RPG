@@ -28,13 +28,13 @@ socket.on("players", (data) => {
 let camera = { x: 0, y: 0 };
 
 /* =========================
-   BACKGROUND IMAGE
+   BACKGROUND
 ========================= */
 const bg = new Image();
 bg.src = "background.png";
 
 /* =========================
-   PC MOVEMENT
+   MOVEMENT
 ========================= */
 window.addEventListener("keydown", (e) => {
     const speed = 10;
@@ -57,9 +57,9 @@ function draw() {
     camera.x = me.x - canvas.width / 2;
     camera.y = me.y - canvas.height / 2;
 
-    // BACKGROUND
+    // BACKGROUND (SAFE)
     if (bg.complete && bg.naturalWidth > 0) {
-        ctx.drawImage(bg, -camera.x, -camera.y, canvas.width, canvas.height);
+        ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
     } else {
         ctx.fillStyle = "#2e7d32";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -91,7 +91,7 @@ function draw() {
 draw();
 
 /* =========================
-   CHAT (TOP RIGHT)
+   CHAT
 ========================= */
 const chatBox = document.createElement("div");
 chatBox.style.position = "fixed";
@@ -111,7 +111,6 @@ document.body.appendChild(chatBox);
 const input = document.createElement("input");
 input.type = "text";
 input.placeholder = "Chat...";
-
 input.style.position = "fixed";
 input.style.top = "170px";
 input.style.right = "10px";
@@ -129,7 +128,7 @@ input.addEventListener("keydown", (e) => {
 
 socket.on("chat", (data) => {
     const msg = document.createElement("div");
-    msg.textContent = data.name + ": + data.msg;
+    msg.textContent = data.name + ": " + data.msg;
 
     chatBox.appendChild(msg);
     chatBox.scrollTop = chatBox.scrollHeight;
@@ -141,7 +140,7 @@ socket.on("chat", (data) => {
 });
 
 /* =========================
-   MOBILE CONTROLS (BOTTOM LEFT)
+   MOBILE CONTROLS
 ========================= */
 function createButton(text, left, bottom, onDown) {
     const btn = document.createElement("button");
