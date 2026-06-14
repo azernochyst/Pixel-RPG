@@ -32,6 +32,16 @@ let world = {
 let camera = { x: 0, y: 0 };
 
 /* =========================
+   INPUT STATE (ÚJ!)
+========================= */
+let keys = {
+    w: false,
+    a: false,
+    s: false,
+    d: false
+};
+
+/* =========================
    SOCKET
 ========================= */
 socket.on("players", (data) => {
@@ -45,50 +55,126 @@ const bg = new Image();
 bg.src = "background.png";
 
 /* =========================
-   MOVE + ATTACK (KEYBOARD)
+   KEY DOWN / UP (SMOOTH MOVEMENT)
 ========================= */
 window.addEventListener("keydown", (e) => {
-    const speed = 10;
+    if (e.key === "w") keys.w = true;
+    if (e.key === "a") keys.a = true;
+    if (e.key === "s") keys.s = true;
+    if (e.key === "d") keys.d = true;
 
-    if (e.key === "w") me.y -= speed;
-    if (e.key === "s") me.y += speed;
-    if (e.key === "a") me.x -= speed;
-    if (e.key === "d") me.x += speed;
+    if (e.key === " ") socket.emit("attack");
+});
+
+window.addEventListener("keyup", (e) => {
+    if (e.key === "w") keys.w = false;
+    if (e.key === "a") keys.a = false;
+    if (e.key === "s") keys.s = false;
+    if (e.key === "d") keys.d = false;
+});
+
+/* =========================
+   MOBILE HOLD SYSTEM
+========================= */
+let mobileKeys = {
+    w: false,
+    a: false,
+    s: false,
+    d: false
+};
+
+function holdButton(text, left, bottom, key) {
+    const btn = document.createElement("button");
+    btn.textContent = text;
+
+    btn.style.position = "fixed";
+    btn.style.left = left + "px";
+    btn.style.bottom = bottom + "px";
+    btn.style.width = "60px";
+    btn.style.height = "60px";
+    btn.style.fontSize = "16px";
+    btn.style.zIndex = "1000";
+    btn.style.opacity = "0.6";
+
+    document.body.appendChild(btn);
+
+    btn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        mobileKeys[key] = true;
+    });
+
+    btn.addEventListener("touchend", () => {
+        mobileKeys[key] = false;
+    });
+
+    btn.addEventListener("mousedown", () => {
+        mobileKeys[key] = true;
+    });
+
+    btn.addEventListener("mouseup", () => {
+        mobileKeys[key] = false;
+    });
+
+    btn.addEventListener("mouseleave", () => {
+        mobileKeys[key] = false;
+    });
+}
+
+/* =========================
+   BUTTONS
+========================= */
+holdButton("W", 80, 140, "w");
+holdButton("S", 80, 20, "s");
+holdButton("A", 20, 80, "a");
+holdButton("D", 140, 80, "d");
+
+createButton("⚔️", 140, 200, () => {
+    socket.emit("attack");
+});
+
+/* =========================
+   NORMAL SPEED MOVEMENT (FIX)
+========================= */
+const speed = 4; // ⚡ sokkal “game-feeling”
+
+function updateMovement() {
+    const k = keys;
+    const m = mobileKeys;
+
+    const up = k.w || m.w;
+    const down = k.s || m.s;
+    const left = k.a || m.a;
+    const right = k.d || m.d;
+
+    if (up) me.y -= speed;
+    if (down) me.y += speed;
+    if (left) me.x -= speed;
+    if (right) me.x += speed;
 
     socket.emit("move", me);
-
-    if (e.key === " ") {
-        socket.emit("attack");
-    }
-});
+}
 
 /* =========================
    DRAW LOOP
 ========================= */
 function draw() {
+    updateMovement(); // 🔥 folyamatos movement
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    /* CAMERA FOLLOW */
     camera.x = me.x - canvas.width / 2;
     camera.y = me.y - canvas.height / 2;
 
     camera.x = Math.max(0, Math.min(camera.x, world.width - canvas.width));
     camera.y = Math.max(0, Math.min(camera.y, world.height - canvas.height));
 
-    /* =========================
-       BACKGROUND
-    ========================= */
     if (bg.complete && bg.naturalWidth > 0) {
         const tileW = bg.width;
         const tileH = bg.height;
 
         for (let x = -tileW; x < canvas.width + tileW; x += tileW) {
             for (let y = -tileH; y < canvas.height + tileH; y += tileH) {
-                ctx.drawImage(
-                    bg,
-                    x - (camera.x % tileW),
-                    y - (camera.y % tileH)
-                );
+                ctx.drawImage(bg, x - (camera.x % tileW), y - (camera.y % tileH));
             }
         }
     } else {
@@ -96,20 +182,15 @@ function draw() {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    /* =========================
-       PLAYERS
-    ========================= */
     for (const id in players) {
         const p = players[id];
 
         const x = p.x - camera.x;
         const y = p.y - camera.y;
 
-        /* PLAYER */
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, 32, 32);
 
-        /* HP BAR (FELÜL) */
         if (p.hp !== undefined) {
             ctx.fillStyle = "black";
             ctx.fillRect(x, y - 18, 32, 5);
@@ -118,7 +199,6 @@ function draw() {
             ctx.fillRect(x, y - 18, 32 * (p.hp / 100), 5);
         }
 
-        /* NAME (ALUL) */
         ctx.fillStyle = "white";
         ctx.font = "12px Arial";
         ctx.fillText(p.name || "Player", x, y + 45);
@@ -129,7 +209,7 @@ function draw() {
 draw();
 
 /* =========================
-   CHAT
+   CHAT (UNCHANGED)
 ========================= */
 const chatBox = document.createElement("div");
 chatBox.style.position = "fixed";
@@ -168,48 +248,4 @@ socket.on("chat", (data) => {
 
     chatBox.appendChild(msg);
     chatBox.scrollTop = chatBox.scrollHeight;
-
-    if (players[data.id]) {
-        players[data.id].bubble = data.msg;
-        players[data.id].bubbleTime = Date.now();
-    }
-});
-
-/* =========================
-   MOBILE CONTROLS
-========================= */
-function createButton(text, left, bottom, onDown) {
-    const btn = document.createElement("button");
-    btn.textContent = text;
-
-    btn.style.position = "fixed";
-    btn.style.left = left + "px";
-    btn.style.bottom = bottom + "px";
-    btn.style.width = "60px";
-    btn.style.height = "60px";
-    btn.style.fontSize = "16px";
-    btn.style.zIndex = "1000";
-    btn.style.opacity = "0.6";
-
-    document.body.appendChild(btn);
-
-    btn.addEventListener("touchstart", (e) => {
-        e.preventDefault();
-        onDown();
-    });
-
-    btn.addEventListener("mousedown", onDown);
-}
-
-/* movement */
-const speed = 10;
-
-createButton("W", 80, 140, () => { me.y -= speed; socket.emit("move", me); });
-createButton("S", 80, 20, () => { me.y += speed; socket.emit("move", me); });
-createButton("A", 20, 80, () => { me.x -= speed; socket.emit("move", me); });
-createButton("D", 140, 80, () => { me.x += speed; socket.emit("move", me); });
-
-/* attack */
-createButton("⚔️", 140, 200, () => {
-    socket.emit("attack");
 });
