@@ -16,23 +16,17 @@ resize();
 window.addEventListener("resize", resize);
 
 /* =========================
-   PLAYER
+   WORLD + PLAYER
 ========================= */
-let me = { x: 100, y: 100 };
-let players = {};
-
-/* =========================
-   CAMERA
-========================= */
-let camera = { x: 0, y: 0 };
-
-/* =========================
-   WORLD
-========================= */
-const world = {
+let world = {
     width: 2000,
     height: 2000
 };
+
+let me = { x: 100, y: 100 };
+let players = {};
+
+let camera = { x: 0, y: 0 };
 
 /* =========================
    SOCKET
@@ -48,51 +42,134 @@ const bg = new Image();
 bg.src = "background.png";
 
 /* =========================
-   MOVEMENT + ATTACK
+   INPUT
 ========================= */
-window.addEventListener("keydown", (e) => {
-    const speed = 10;
+let keys = { w:false,a:false,s:false,d:false };
+let mobile = { w:false,a:false,s:false,d:false };
 
-    if (e.key === "w") me.y -= speed;
-    if (e.key === "s") me.y += speed;
-    if (e.key === "a") me.x -= speed;
-    if (e.key === "d") me.x += speed;
+window.addEventListener("keydown", (e) => {
+    if (e.key === "w") keys.w = true;
+    if (e.key === "a") keys.a = true;
+    if (e.key === "s") keys.s = true;
+    if (e.key === "d") keys.d = true;
+
+    if (e.key === " ") socket.emit("attack");
+});
+
+window.addEventListener("keyup", (e) => {
+    if (e.key === "w") keys.w = false;
+    if (e.key === "a") keys.a = false;
+    if (e.key === "s") keys.s = false;
+    if (e.key === "d") keys.d = false;
+});
+
+/* =========================
+   MOBILE HOLD BUTTONS
+========================= */
+function holdBtn(text, left, bottom, key) {
+    const b = document.createElement("button");
+    b.textContent = text;
+
+    b.style.position = "fixed";
+    b.style.left = left + "px";
+    b.style.bottom = bottom + "px";
+    b.style.width = "60px";
+    b.style.height = "60px";
+    b.style.opacity = 0.6;
+    b.style.zIndex = 1000;
+
+    document.body.appendChild(b);
+
+    const on = () => mobile[key] = true;
+    const off = () => mobile[key] = false;
+
+    b.addEventListener("touchstart", (e)=>{e.preventDefault(); on();});
+    b.addEventListener("touchend", off);
+    b.addEventListener("mousedown", on);
+    b.addEventListener("mouseup", off);
+    b.addEventListener("mouseleave", off);
+}
+
+holdBtn("W",80,140,"w");
+holdBtn("S",80,20,"s");
+holdBtn("A",20,80,"a");
+holdBtn("D",140,80,"d");
+
+/* attack button */
+function btn(text,left,bottom,cb){
+    const b=document.createElement("button");
+    b.textContent=text;
+    b.style.position="fixed";
+    b.style.left=left+"px";
+    b.style.bottom=bottom+"px";
+    b.style.width="60px";
+    b.style.height="60px";
+    b.style.opacity=0.6;
+    b.style.zIndex=1000;
+
+    document.body.appendChild(b);
+    b.addEventListener("click",cb);
+}
+btn("⚔️",140,200,()=>socket.emit("attack"));
+
+/* =========================
+   MOVEMENT
+========================= */
+const speed = 4;
+
+function update() {
+    const k = keys;
+    const m = mobile;
+
+    if (k.w || m.w) me.y -= speed;
+    if (k.s || m.s) me.y += speed;
+    if (k.a || m.a) me.x -= speed;
+    if (k.d || m.d) me.x += speed;
 
     socket.emit("move", me);
-
-    if (e.key === " ") {
-        socket.emit("attack");
-    }
-});
+}
 
 /* =========================
    DRAW LOOP
 ========================= */
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    update();
 
-    camera.x = me.x - canvas.width / 2;
-    camera.y = me.y - canvas.height / 2;
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    /* CAMERA */
+    camera.x = me.x - canvas.width/2;
+    camera.y = me.y - canvas.height/2;
 
     camera.x = Math.max(0, Math.min(camera.x, world.width - canvas.width));
     camera.y = Math.max(0, Math.min(camera.y, world.height - canvas.height));
 
-    /* BACKGROUND */
+    /* =========================
+       BACKGROUND (SHARP TILE)
+    ========================= */
+    ctx.fillStyle = "#2e7d32";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
     if (bg.complete && bg.naturalWidth > 0) {
         const tileW = bg.width;
         const tileH = bg.height;
 
         for (let x = -tileW; x < canvas.width + tileW; x += tileW) {
             for (let y = -tileH; y < canvas.height + tileH; y += tileH) {
-                ctx.drawImage(bg, x - (camera.x % tileW), y - (camera.y % tileH));
+                ctx.drawImage(
+                    bg,
+                    x - (camera.x % tileW),
+                    y - (camera.y % tileH),
+                    tileW,
+                    tileH
+                );
             }
         }
-    } else {
-        ctx.fillStyle = "#2e7d32";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    /* PLAYERS */
+    /* =========================
+       PLAYERS
+    ========================= */
     for (const id in players) {
         const p = players[id];
 
@@ -102,7 +179,6 @@ function draw() {
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, 32, 32);
 
-        /* HP */
         if (p.hp !== undefined) {
             ctx.fillStyle = "black";
             ctx.fillRect(x, y - 18, 32, 5);
@@ -111,65 +187,12 @@ function draw() {
             ctx.fillRect(x, y - 18, 32 * (p.hp / 100), 5);
         }
 
-        /* NAME (a HP ALATT) */
         ctx.fillStyle = "white";
         ctx.font = "12px Arial";
         ctx.fillText(p.name || "Player", x, y + 45);
-
-        /* BUBBLE */
-        if (p.bubble && Date.now() - p.bubbleTime < 3000) {
-            ctx.fillStyle = "yellow";
-            ctx.fillText(p.bubble, x, y - 30);
-        }
     }
 
     requestAnimationFrame(draw);
 }
+
 draw();
-
-/* =========================
-   CHAT UI
-========================= */
-const chatBox = document.createElement("div");
-chatBox.style.position = "fixed";
-chatBox.style.top = "10px";
-chatBox.style.right = "10px";
-chatBox.style.width = "250px";
-chatBox.style.height = "150px";
-chatBox.style.overflowY = "auto";
-chatBox.style.background = "rgba(0,0,0,0.5)";
-chatBox.style.color = "white";
-chatBox.style.padding = "5px";
-chatBox.style.fontSize = "12px";
-chatBox.style.zIndex = "1000";
-document.body.appendChild(chatBox);
-
-const input = document.createElement("input");
-input.type = "text";
-input.placeholder = "Chat...";
-input.style.position = "fixed";
-input.style.top = "170px";
-input.style.right = "10px";
-input.style.width = "250px";
-input.style.zIndex = "1000";
-document.body.appendChild(input);
-
-input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && input.value.trim() !== "") {
-        socket.emit("chat", input.value);
-        input.value = "";
-    }
-});
-
-socket.on("chat", (data) => {
-    const msg = document.createElement("div");
-    msg.textContent = data.name + ": " + data.msg;
-
-    chatBox.appendChild(msg);
-    chatBox.scrollTop = chatBox.scrollHeight;
-
-    if (players[data.id]) {
-        players[data.id].bubble = data.msg;
-        players[data.id].bubbleTime = Date.now();
-    }
-});
