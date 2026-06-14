@@ -60,3 +60,12 @@ server.listen(3000, () => {
 server.listen(PORT, () => {
     console.log("Server running on port " + PORT);
 });
+io.on("connection", (socket) => {
+
+    console.log("Csatlakozott:", socket.id);
+
+    socket.on("move", (data) => {
+        socket.broadcast.emit("move", data);
+    });
+
+});
