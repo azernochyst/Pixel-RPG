@@ -1,0 +1,31 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #222;
+}
+
+canvas {
+    display: block;
+    background: #3c8f3c;
+}
+
+#chatBox {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    width: 250px;
+}
+
+#messages {
+    height: 150px;
+    overflow-y: auto;
+    background: rgba(0,0,0,.7);
+    color: white;
+    padding: 8px;
+    margin-bottom: 5px;
+}
+
+#chatInput {
+    width: 100%;
+    padding: 8px;
+}
