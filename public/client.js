@@ -36,7 +36,7 @@ socket.on("players", (data) => {
 });
 
 /* =========================
-   BACKGROUND (SAFE)
+   BACKGROUND
 ========================= */
 const bg = new Image();
 bg.src = "background.png";
@@ -45,6 +45,7 @@ bg.src = "background.png";
    INPUT
 ========================= */
 let keys = { w:false,a:false,s:false,d:false };
+let mobile = { w:false,a:false,s:false,d:false };
 
 window.addEventListener("keydown", (e) => {
     if (e.key === "w") keys.w = true;
@@ -63,10 +64,8 @@ window.addEventListener("keyup", (e) => {
 });
 
 /* =========================
-   MOBILE HOLD
+   MOBILE HOLD BUTTONS
 ========================= */
-let mobile = { w:false,a:false,s:false,d:false };
-
 function holdBtn(text, left, bottom, key) {
     const b = document.createElement("button");
     b.textContent = text;
@@ -76,8 +75,8 @@ function holdBtn(text, left, bottom, key) {
     b.style.bottom = bottom + "px";
     b.style.width = "60px";
     b.style.height = "60px";
-    b.style.zIndex = 1000;
     b.style.opacity = 0.6;
+    b.style.zIndex = 1000;
 
     document.body.appendChild(b);
 
@@ -96,8 +95,8 @@ holdBtn("S",80,20,"s");
 holdBtn("A",20,80,"a");
 holdBtn("D",140,80,"d");
 
-/* attack */
-function attackBtn(text,left,bottom){
+/* attack button */
+function btn(text,left,bottom,cb){
     const b=document.createElement("button");
     b.textContent=text;
     b.style.position="fixed";
@@ -105,16 +104,16 @@ function attackBtn(text,left,bottom){
     b.style.bottom=bottom+"px";
     b.style.width="60px";
     b.style.height="60px";
-    b.style.zIndex=1000;
     b.style.opacity=0.6;
+    b.style.zIndex=1000;
 
     document.body.appendChild(b);
-    b.addEventListener("click", ()=>socket.emit("attack"));
+    b.addEventListener("click",cb);
 }
-attackBtn("⚔️",140,200);
+btn("⚔️",140,200,()=>socket.emit("attack"));
 
 /* =========================
-   MOVEMENT UPDATE
+   MOVEMENT
 ========================= */
 const speed = 4;
 
@@ -131,7 +130,7 @@ function update() {
 }
 
 /* =========================
-   DRAW
+   DRAW LOOP
 ========================= */
 function draw() {
     update();
@@ -146,19 +145,26 @@ function draw() {
     camera.y = Math.max(0, Math.min(camera.y, world.height - canvas.height));
 
     /* =========================
-       BACKGROUND (100% SAFE)
+       BACKGROUND (SHARP TILE)
     ========================= */
-
-    // alap mindig van → NINCS FEHÉR KÉP
     ctx.fillStyle = "#2e7d32";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // kép csak ha betöltött
     if (bg.complete && bg.naturalWidth > 0) {
-        const x = -camera.x;
-        const y = -camera.y;
+        const tileW = bg.width;
+        const tileH = bg.height;
 
-        ctx.drawImage(bg, x, y, world.width, world.height);
+        for (let x = -tileW; x < canvas.width + tileW; x += tileW) {
+            for (let y = -tileH; y < canvas.height + tileH; y += tileH) {
+                ctx.drawImage(
+                    bg,
+                    x - (camera.x % tileW),
+                    y - (camera.y % tileH),
+                    tileW,
+                    tileH
+                );
+            }
+        }
     }
 
     /* =========================
@@ -173,7 +179,6 @@ function draw() {
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, 32, 32);
 
-        /* HP */
         if (p.hp !== undefined) {
             ctx.fillStyle = "black";
             ctx.fillRect(x, y - 18, 32, 5);
@@ -182,7 +187,6 @@ function draw() {
             ctx.fillRect(x, y - 18, 32 * (p.hp / 100), 5);
         }
 
-        /* NAME (ALUL) */
         ctx.fillStyle = "white";
         ctx.font = "12px Arial";
         ctx.fillText(p.name || "Player", x, y + 45);
