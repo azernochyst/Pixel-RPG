@@ -15,25 +15,23 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
+/* =========================
+   PLAYER STATE
+========================= */
 let me = { x: 100, y: 100 };
 let players = {};
-
-socket.on("players", (data) => {
-    players = data;
-});
-
-/* =========================
-   WORLD
-========================= */
-const world = {
-    width: 2000,
-    height: 2000
-};
 
 /* =========================
    CAMERA
 ========================= */
 let camera = { x: 0, y: 0 };
+
+/* =========================
+   SOCKET
+========================= */
+socket.on("players", (data) => {
+    players = data;
+});
 
 /* =========================
    BACKGROUND
@@ -53,51 +51,58 @@ window.addEventListener("keydown", (e) => {
     if (e.key === "d") me.x += speed;
 
     socket.emit("move", me);
+
+    // ⚔️ ATTACK (SPACE)
+    if (e.key === " ") {
+        socket.emit("attack");
+    }
 });
 
 /* =========================
-   RENDER LOOP
+   DRAW LOOP
 ========================= */
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // CAMERA FOLLOW
+    // camera follow
     camera.x = me.x - canvas.width / 2;
     camera.y = me.y - canvas.height / 2;
 
-    // CAMERA CLAMP
-    camera.x = Math.max(0, Math.min(camera.x, world.width - canvas.width));
-    camera.y = Math.max(0, Math.min(camera.y, world.height - canvas.height));
-
-    // BACKGROUND TILE
+    /* =========================
+       BACKGROUND
+    ========================= */
     if (bg.complete && bg.naturalWidth > 0) {
-        for (let x = 0; x < world.width; x += bg.width) {
-            for (let y = 0; y < world.height; y += bg.height) {
-                ctx.drawImage(bg, x - camera.x, y - camera.y);
-            }
-        }
+        ctx.drawImage(bg, -camera.x, -camera.y, 2000, 2000);
     } else {
         ctx.fillStyle = "#2e7d32";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // PLAYERS
+    /* =========================
+       PLAYERS
+    ========================= */
     for (const id in players) {
         const p = players[id];
 
         const x = p.x - camera.x;
         const y = p.y - camera.y;
 
+        // player
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, 32, 32);
 
+        // name
         ctx.fillStyle = "white";
         ctx.font = "12px Arial";
-        ctx.fillText(p.name || "Player", x, y - 5);
+        ctx.fillText(p.name || "Player", x, y - 8);
 
-        if (p.bubble && Date.now() - p.bubbleTime < 3000) {
-            ctx.fillStyle = "yellow";
-            ctx.fillText(p.bubble, x, y - 20);
+        // HP BAR
+        if (p.hp !== undefined) {
+            ctx.fillStyle = "black";
+            ctx.fillRect(x, y - 18, 32, 5);
+
+            ctx.fillStyle = "lime";
+            ctx.fillRect(x, y - 18, 32 * (p.hp / 100), 5);
         }
     }
 
@@ -106,7 +111,7 @@ function draw() {
 draw();
 
 /* =========================
-   CHAT (TOP RIGHT)
+   CHAT
 ========================= */
 const chatBox = document.createElement("div");
 chatBox.style.position = "fixed";
@@ -178,6 +183,7 @@ function createButton(text, left, bottom, onDown) {
     btn.addEventListener("mousedown", onDown);
 }
 
+/* movement */
 const speed = 10;
 
 createButton("W", 80, 140, () => {
@@ -198,4 +204,9 @@ createButton("A", 20, 80, () => {
 createButton("D", 140, 80, () => {
     me.x += speed;
     socket.emit("move", me);
+});
+
+/* ⚔️ attack button */
+createButton("⚔️", 140, 200, () => {
+    socket.emit("attack");
 });
