@@ -23,6 +23,12 @@ socket.on("players", (data) => {
 });
 
 /* =========================
+   BACKGROUND IMAGE
+========================= */
+const bg = new Image();
+bg.src = "background.png";
+
+/* =========================
    PC MOVEMENT
 ========================= */
 window.addEventListener("keydown", (e) => {
@@ -42,38 +48,15 @@ window.addEventListener("keydown", (e) => {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Füves háttér
-    ctx.fillStyle = "#4caf50";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Fű mintázat
-    for (let x = 0; x < canvas.width; x += 40) {
-        for (let y = 0; y < canvas.height; y += 40) {
-
-            const r = (x * 13 + y * 7) % 3;
-
-            if (r === 0) ctx.fillStyle = "#5dbb63";
-            if (r === 1) ctx.fillStyle = "#4caf50";
-            if (r === 2) ctx.fillStyle = "#43a047";
-
-            ctx.fillRect(x, y, 40, 40);
-        }
+    // BACKGROUND (IMAGE)
+    if (bg.complete && bg.naturalWidth > 0) {
+        ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+    } else {
+        ctx.fillStyle = "#2e7d32";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
-    // Kövek + virágok
-    for (let i = 0; i < 60; i++) {
-
-        const x = (i * 137) % canvas.width;
-        const y = (i * 211) % canvas.height;
-
-        ctx.fillStyle = "#777";
-        ctx.fillRect(x, y, 4, 4);
-
-        ctx.fillStyle = "#ffeb3b";
-        ctx.fillRect(x + 8, y + 8, 3, 3);
-    }
-
-    // Játékosok
+    // PLAYERS
     for (const id in players) {
         const p = players[id];
 
@@ -173,7 +156,6 @@ function createButton(text, left, bottom, onDown) {
 
 const speed = 10;
 
-// D-pad bal alul
 createButton("W", 80, 140, () => {
     me.y -= speed;
     socket.emit("move", me);
