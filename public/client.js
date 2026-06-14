@@ -16,30 +16,17 @@ resize();
 window.addEventListener("resize", resize);
 
 /* =========================
-   PLAYER
-========================= */
-let me = { x: 100, y: 100 };
-let players = {};
-
-/* =========================
-   WORLD + CAMERA
+   WORLD + PLAYER
 ========================= */
 let world = {
     width: 2000,
     height: 2000
 };
 
-let camera = { x: 0, y: 0 };
+let me = { x: 100, y: 100 };
+let players = {};
 
-/* =========================
-   INPUT STATE (ÚJ!)
-========================= */
-let keys = {
-    w: false,
-    a: false,
-    s: false,
-    d: false
-};
+let camera = { x: 0, y: 0 };
 
 /* =========================
    SOCKET
@@ -49,14 +36,16 @@ socket.on("players", (data) => {
 });
 
 /* =========================
-   BACKGROUND
+   BACKGROUND (SAFE)
 ========================= */
 const bg = new Image();
 bg.src = "background.png";
 
 /* =========================
-   KEY DOWN / UP (SMOOTH MOVEMENT)
+   INPUT
 ========================= */
+let keys = { w:false,a:false,s:false,d:false };
+
 window.addEventListener("keydown", (e) => {
     if (e.key === "w") keys.w = true;
     if (e.key === "a") keys.a = true;
@@ -74,114 +63,107 @@ window.addEventListener("keyup", (e) => {
 });
 
 /* =========================
-   MOBILE HOLD SYSTEM
+   MOBILE HOLD
 ========================= */
-let mobileKeys = {
-    w: false,
-    a: false,
-    s: false,
-    d: false
-};
+let mobile = { w:false,a:false,s:false,d:false };
 
-function holdButton(text, left, bottom, key) {
-    const btn = document.createElement("button");
-    btn.textContent = text;
+function holdBtn(text, left, bottom, key) {
+    const b = document.createElement("button");
+    b.textContent = text;
 
-    btn.style.position = "fixed";
-    btn.style.left = left + "px";
-    btn.style.bottom = bottom + "px";
-    btn.style.width = "60px";
-    btn.style.height = "60px";
-    btn.style.fontSize = "16px";
-    btn.style.zIndex = "1000";
-    btn.style.opacity = "0.6";
+    b.style.position = "fixed";
+    b.style.left = left + "px";
+    b.style.bottom = bottom + "px";
+    b.style.width = "60px";
+    b.style.height = "60px";
+    b.style.zIndex = 1000;
+    b.style.opacity = 0.6;
 
-    document.body.appendChild(btn);
+    document.body.appendChild(b);
 
-    btn.addEventListener("touchstart", (e) => {
-        e.preventDefault();
-        mobileKeys[key] = true;
-    });
+    const on = () => mobile[key] = true;
+    const off = () => mobile[key] = false;
 
-    btn.addEventListener("touchend", () => {
-        mobileKeys[key] = false;
-    });
-
-    btn.addEventListener("mousedown", () => {
-        mobileKeys[key] = true;
-    });
-
-    btn.addEventListener("mouseup", () => {
-        mobileKeys[key] = false;
-    });
-
-    btn.addEventListener("mouseleave", () => {
-        mobileKeys[key] = false;
-    });
+    b.addEventListener("touchstart", (e)=>{e.preventDefault(); on();});
+    b.addEventListener("touchend", off);
+    b.addEventListener("mousedown", on);
+    b.addEventListener("mouseup", off);
+    b.addEventListener("mouseleave", off);
 }
 
+holdBtn("W",80,140,"w");
+holdBtn("S",80,20,"s");
+holdBtn("A",20,80,"a");
+holdBtn("D",140,80,"d");
+
+/* attack */
+function attackBtn(text,left,bottom){
+    const b=document.createElement("button");
+    b.textContent=text;
+    b.style.position="fixed";
+    b.style.left=left+"px";
+    b.style.bottom=bottom+"px";
+    b.style.width="60px";
+    b.style.height="60px";
+    b.style.zIndex=1000;
+    b.style.opacity=0.6;
+
+    document.body.appendChild(b);
+    b.addEventListener("click", ()=>socket.emit("attack"));
+}
+attackBtn("⚔️",140,200);
+
 /* =========================
-   BUTTONS
+   MOVEMENT UPDATE
 ========================= */
-holdButton("W", 80, 140, "w");
-holdButton("S", 80, 20, "s");
-holdButton("A", 20, 80, "a");
-holdButton("D", 140, 80, "d");
+const speed = 4;
 
-createButton("⚔️", 140, 200, () => {
-    socket.emit("attack");
-});
-
-/* =========================
-   NORMAL SPEED MOVEMENT (FIX)
-========================= */
-const speed = 4; // ⚡ sokkal “game-feeling”
-
-function updateMovement() {
+function update() {
     const k = keys;
-    const m = mobileKeys;
+    const m = mobile;
 
-    const up = k.w || m.w;
-    const down = k.s || m.s;
-    const left = k.a || m.a;
-    const right = k.d || m.d;
-
-    if (up) me.y -= speed;
-    if (down) me.y += speed;
-    if (left) me.x -= speed;
-    if (right) me.x += speed;
+    if (k.w || m.w) me.y -= speed;
+    if (k.s || m.s) me.y += speed;
+    if (k.a || m.a) me.x -= speed;
+    if (k.d || m.d) me.x += speed;
 
     socket.emit("move", me);
 }
 
 /* =========================
-   DRAW LOOP
+   DRAW
 ========================= */
 function draw() {
-    updateMovement(); // 🔥 folyamatos movement
+    update();
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    camera.x = me.x - canvas.width / 2;
-    camera.y = me.y - canvas.height / 2;
+    /* CAMERA */
+    camera.x = me.x - canvas.width/2;
+    camera.y = me.y - canvas.height/2;
 
     camera.x = Math.max(0, Math.min(camera.x, world.width - canvas.width));
     camera.y = Math.max(0, Math.min(camera.y, world.height - canvas.height));
 
-    if (bg.complete && bg.naturalWidth > 0) {
-        const tileW = bg.width;
-        const tileH = bg.height;
+    /* =========================
+       BACKGROUND (100% SAFE)
+    ========================= */
 
-        for (let x = -tileW; x < canvas.width + tileW; x += tileW) {
-            for (let y = -tileH; y < canvas.height + tileH; y += tileH) {
-                ctx.drawImage(bg, x - (camera.x % tileW), y - (camera.y % tileH));
-            }
-        }
-    } else {
-        ctx.fillStyle = "#2e7d32";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // alap mindig van → NINCS FEHÉR KÉP
+    ctx.fillStyle = "#2e7d32";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // kép csak ha betöltött
+    if (bg.complete && bg.naturalWidth > 0) {
+        const x = -camera.x;
+        const y = -camera.y;
+
+        ctx.drawImage(bg, x, y, world.width, world.height);
     }
 
+    /* =========================
+       PLAYERS
+    ========================= */
     for (const id in players) {
         const p = players[id];
 
@@ -191,6 +173,7 @@ function draw() {
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, 32, 32);
 
+        /* HP */
         if (p.hp !== undefined) {
             ctx.fillStyle = "black";
             ctx.fillRect(x, y - 18, 32, 5);
@@ -199,6 +182,7 @@ function draw() {
             ctx.fillRect(x, y - 18, 32 * (p.hp / 100), 5);
         }
 
+        /* NAME (ALUL) */
         ctx.fillStyle = "white";
         ctx.font = "12px Arial";
         ctx.fillText(p.name || "Player", x, y + 45);
@@ -206,46 +190,5 @@ function draw() {
 
     requestAnimationFrame(draw);
 }
+
 draw();
-
-/* =========================
-   CHAT (UNCHANGED)
-========================= */
-const chatBox = document.createElement("div");
-chatBox.style.position = "fixed";
-chatBox.style.top = "10px";
-chatBox.style.right = "10px";
-chatBox.style.width = "250px";
-chatBox.style.height = "150px";
-chatBox.style.overflowY = "auto";
-chatBox.style.background = "rgba(0,0,0,0.5)";
-chatBox.style.color = "white";
-chatBox.style.padding = "5px";
-chatBox.style.fontSize = "12px";
-chatBox.style.zIndex = "1000";
-document.body.appendChild(chatBox);
-
-const input = document.createElement("input");
-input.type = "text";
-input.placeholder = "Chat...";
-input.style.position = "fixed";
-input.style.top = "170px";
-input.style.right = "10px";
-input.style.width = "250px";
-input.style.zIndex = "1000";
-document.body.appendChild(input);
-
-input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && input.value.trim() !== "") {
-        socket.emit("chat", input.value);
-        input.value = "";
-    }
-});
-
-socket.on("chat", (data) => {
-    const msg = document.createElement("div");
-    msg.textContent = data.name + ": " + data.msg;
-
-    chatBox.appendChild(msg);
-    chatBox.scrollTop = chatBox.scrollHeight;
-});
