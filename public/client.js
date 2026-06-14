@@ -23,7 +23,7 @@ socket.on("players", (data) => {
 });
 
 /* =========================
-   MOVEMENT (PC)
+   PC MOVEMENT
 ========================= */
 window.addEventListener("keydown", (e) => {
     const speed = 10;
@@ -66,7 +66,7 @@ function draw() {
 draw();
 
 /* =========================
-   CHAT UI (TOP RIGHT FIX)
+   CHAT (TOP RIGHT)
 ========================= */
 const chatBox = document.createElement("div");
 chatBox.style.position = "fixed";
@@ -116,18 +116,18 @@ socket.on("chat", (data) => {
 });
 
 /* =========================
-   MOBILE CONTROLS (RIGHT SIDE FIX)
+   MOBILE CONTROLS (BOTTOM LEFT)
 ========================= */
-function createButton(text, right, bottom, onDown) {
+function createButton(text, left, bottom, onDown) {
     const btn = document.createElement("button");
     btn.textContent = text;
 
     btn.style.position = "fixed";
-    btn.style.right = right + "px";
+    btn.style.left = left + "px";
     btn.style.bottom = bottom + "px";
     btn.style.width = "60px";
     btn.style.height = "60px";
-    btn.style.fontSize = "20px";
+    btn.style.fontSize = "16px";
     btn.style.zIndex = "1000";
     btn.style.opacity = "0.6";
 
@@ -143,23 +143,23 @@ function createButton(text, right, bottom, onDown) {
 
 const speed = 10;
 
-// D-pad jobb oldalon
-createButton("⬆️", 80, 140, () => {
+// D-pad bal alul
+createButton("W", 80, 140, () => {
     me.y -= speed;
     socket.emit("move", me);
 });
 
-createButton("⬇️", 80, 20, () => {
+createButton("S", 80, 20, () => {
     me.y += speed;
     socket.emit("move", me);
 });
 
-createButton("⬅️", 140, 80, () => {
+createButton("A", 20, 80, () => {
     me.x -= speed;
     socket.emit("move", me);
 });
 
-createButton("➡️", 20, 80, () => {
+createButton("D", 140, 80, () => {
     me.x += speed;
     socket.emit("move", me);
 });
