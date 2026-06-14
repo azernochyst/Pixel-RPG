@@ -16,7 +16,7 @@ resize();
 window.addEventListener("resize", resize);
 
 /* =========================
-   PLAYER STATE
+   PLAYER
 ========================= */
 let me = { x: 100, y: 100 };
 let players = {};
@@ -39,8 +39,13 @@ socket.on("players", (data) => {
 const bg = new Image();
 bg.src = "background.png";
 
+let world = {
+    width: 2000,
+    height: 2000
+};
+
 /* =========================
-   MOVEMENT (PC)
+   MOVE + ATTACK
 ========================= */
 window.addEventListener("keydown", (e) => {
     const speed = 10;
@@ -52,7 +57,6 @@ window.addEventListener("keydown", (e) => {
 
     socket.emit("move", me);
 
-    // ⚔️ ATTACK (SPACE)
     if (e.key === " ") {
         socket.emit("attack");
     }
@@ -64,15 +68,30 @@ window.addEventListener("keydown", (e) => {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // camera follow
+    // CAMERA FOLLOW
     camera.x = me.x - canvas.width / 2;
     camera.y = me.y - canvas.height / 2;
 
+    camera.x = Math.max(0, camera.x);
+    camera.y = Math.max(0, camera.y);
+
     /* =========================
-       BACKGROUND
+       BACKGROUND SAFE DRAW
     ========================= */
+
     if (bg.complete && bg.naturalWidth > 0) {
-        ctx.drawImage(bg, -camera.x, -camera.y, 2000, 2000);
+        const tileW = bg.width;
+        const tileH = bg.height;
+
+        for (let x = -tileW; x < canvas.width + tileW; x += tileW) {
+            for (let y = -tileH; y < canvas.height + tileH; y += tileH) {
+                ctx.drawImage(
+                    bg,
+                    x - (camera.x % tileW),
+                    y - (camera.y % tileH)
+                );
+            }
+        }
     } else {
         ctx.fillStyle = "#2e7d32";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -87,16 +106,13 @@ function draw() {
         const x = p.x - camera.x;
         const y = p.y - camera.y;
 
-        // player
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, 32, 32);
 
-        // name
         ctx.fillStyle = "white";
         ctx.font = "12px Arial";
         ctx.fillText(p.name || "Player", x, y - 8);
 
-        // HP BAR
         if (p.hp !== undefined) {
             ctx.fillStyle = "black";
             ctx.fillRect(x, y - 18, 32, 5);
@@ -186,27 +202,17 @@ function createButton(text, left, bottom, onDown) {
 /* movement */
 const speed = 10;
 
-createButton("W", 80, 140, () => {
-    me.y -= speed;
-    socket.emit("move", me);
-});
+createButton("W", 80, 140, () => me.y -= speed);
+createButton("S", 80, 20, () => me.y += speed);
+createButton("A", 20, 80, () => me.x -= speed);
+createButton("D", 140, 80, () => me.x += speed);
 
-createButton("S", 80, 20, () => {
-    me.y += speed;
+/* send movement */
+setInterval(() => {
     socket.emit("move", me);
-});
+}, 50);
 
-createButton("A", 20, 80, () => {
-    me.x -= speed;
-    socket.emit("move", me);
-});
-
-createButton("D", 140, 80, () => {
-    me.x += speed;
-    socket.emit("move", me);
-});
-
-/* ⚔️ attack button */
+/* attack */
 createButton("⚔️", 140, 200, () => {
     socket.emit("attack");
 });
