@@ -1,8 +1,10 @@
 const socket = io();
+
 let myName = prompt("Add meg a neved:");
 if (!myName || myName.trim() === "") myName = "Player";
 
 socket.emit("setName", myName);
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
@@ -20,6 +22,9 @@ socket.on("players", (data) => {
     players = data;
 });
 
+/* =========================
+   MOVEMENT (PC)
+========================= */
 window.addEventListener("keydown", (e) => {
     const speed = 10;
 
@@ -31,6 +36,9 @@ window.addEventListener("keydown", (e) => {
     socket.emit("move", me);
 });
 
+/* =========================
+   RENDER LOOP
+========================= */
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -55,14 +63,15 @@ function draw() {
 
     requestAnimationFrame(draw);
 }
-
 draw();
 
-/* CHAT UI */
+/* =========================
+   CHAT UI (TOP RIGHT FIX)
+========================= */
 const chatBox = document.createElement("div");
 chatBox.style.position = "fixed";
-chatBox.style.bottom = "10px";
-chatBox.style.left = "10px";
+chatBox.style.top = "10px";
+chatBox.style.right = "10px";
 chatBox.style.width = "250px";
 chatBox.style.height = "150px";
 chatBox.style.overflowY = "auto";
@@ -77,10 +86,11 @@ document.body.appendChild(chatBox);
 const input = document.createElement("input");
 input.type = "text";
 input.placeholder = "Chat...";
+
 input.style.position = "fixed";
-input.style.bottom = "10px";
-input.style.left = "270px";
-input.style.width = "200px";
+input.style.top = "170px";
+input.style.right = "10px";
+input.style.width = "250px";
 input.style.zIndex = "1000";
 
 document.body.appendChild(input);
@@ -104,12 +114,16 @@ socket.on("chat", (data) => {
         players[data.id].bubbleTime = Date.now();
     }
 });
-function createButton(text, left, bottom, onDown) {
+
+/* =========================
+   MOBILE CONTROLS (RIGHT SIDE FIX)
+========================= */
+function createButton(text, right, bottom, onDown) {
     const btn = document.createElement("button");
     btn.textContent = text;
 
     btn.style.position = "fixed";
-    btn.style.left = left + "px";
+    btn.style.right = right + "px";
     btn.style.bottom = bottom + "px";
     btn.style.width = "60px";
     btn.style.height = "60px";
@@ -119,7 +133,6 @@ function createButton(text, left, bottom, onDown) {
 
     document.body.appendChild(btn);
 
-    // mobil + PC
     btn.addEventListener("touchstart", (e) => {
         e.preventDefault();
         onDown();
@@ -128,10 +141,10 @@ function createButton(text, left, bottom, onDown) {
     btn.addEventListener("mousedown", onDown);
 }
 
-// irányok
 const speed = 10;
 
-createButton("⬆️", 80, 120, () => {
+// D-pad jobb oldalon
+createButton("⬆️", 80, 140, () => {
     me.y -= speed;
     socket.emit("move", me);
 });
@@ -141,12 +154,12 @@ createButton("⬇️", 80, 20, () => {
     socket.emit("move", me);
 });
 
-createButton("⬅️", 20, 70, () => {
+createButton("⬅️", 140, 80, () => {
     me.x -= speed;
     socket.emit("move", me);
 });
 
-createButton("➡️", 140, 70, () => {
+createButton("➡️", 20, 80, () => {
     me.x += speed;
     socket.emit("move", me);
 });
