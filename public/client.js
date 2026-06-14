@@ -25,7 +25,6 @@ let world = {
 
 let me = { x: 100, y: 100 };
 let players = {};
-
 let camera = { x: 0, y: 0 };
 
 /* =========================
@@ -33,6 +32,48 @@ let camera = { x: 0, y: 0 };
 ========================= */
 socket.on("players", (data) => {
     players = data;
+});
+
+/* =========================
+   CHAT FIX (⬅ EZ A HIÁNYZÓ RÉSZ)
+========================= */
+const chatBox = document.createElement("div");
+chatBox.style.position = "fixed";
+chatBox.style.top = "10px";
+chatBox.style.right = "10px";
+chatBox.style.width = "250px";
+chatBox.style.height = "150px";
+chatBox.style.overflowY = "auto";
+chatBox.style.background = "rgba(0,0,0,0.5)";
+chatBox.style.color = "white";
+chatBox.style.padding = "5px";
+chatBox.style.fontSize = "12px";
+chatBox.style.zIndex = "1000";
+document.body.appendChild(chatBox);
+
+const chatInput = document.createElement("input");
+chatInput.type = "text";
+chatInput.placeholder = "Chat...";
+chatInput.style.position = "fixed";
+chatInput.style.top = "170px";
+chatInput.style.right = "10px";
+chatInput.style.width = "250px";
+chatInput.style.zIndex = "1000";
+document.body.appendChild(chatInput);
+
+chatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && chatInput.value.trim() !== "") {
+        socket.emit("chat", chatInput.value);
+        chatInput.value = "";
+    }
+});
+
+socket.on("chat", (data) => {
+    const msg = document.createElement("div");
+    msg.textContent = data.name + ": " + data.msg;
+
+    chatBox.appendChild(msg);
+    chatBox.scrollTop = chatBox.scrollHeight;
 });
 
 /* =========================
@@ -137,16 +178,12 @@ function draw() {
 
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    /* CAMERA */
     camera.x = me.x - canvas.width/2;
     camera.y = me.y - canvas.height/2;
 
     camera.x = Math.max(0, Math.min(camera.x, world.width - canvas.width));
     camera.y = Math.max(0, Math.min(camera.y, world.height - canvas.height));
 
-    /* =========================
-       BACKGROUND (SHARP TILE)
-    ========================= */
     ctx.fillStyle = "#2e7d32";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
@@ -167,9 +204,6 @@ function draw() {
         }
     }
 
-    /* =========================
-       PLAYERS
-    ========================= */
     for (const id in players) {
         const p = players[id];
 
