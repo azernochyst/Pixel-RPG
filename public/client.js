@@ -104,3 +104,49 @@ socket.on("chat", (data) => {
         players[data.id].bubbleTime = Date.now();
     }
 });
+function createButton(text, left, bottom, onDown) {
+    const btn = document.createElement("button");
+    btn.textContent = text;
+
+    btn.style.position = "fixed";
+    btn.style.left = left + "px";
+    btn.style.bottom = bottom + "px";
+    btn.style.width = "60px";
+    btn.style.height = "60px";
+    btn.style.fontSize = "20px";
+    btn.style.zIndex = "1000";
+    btn.style.opacity = "0.6";
+
+    document.body.appendChild(btn);
+
+    // mobil + PC
+    btn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        onDown();
+    });
+
+    btn.addEventListener("mousedown", onDown);
+}
+
+// irányok
+const speed = 10;
+
+createButton("⬆️", 80, 120, () => {
+    me.y -= speed;
+    socket.emit("move", me);
+});
+
+createButton("⬇️", 80, 20, () => {
+    me.y += speed;
+    socket.emit("move", me);
+});
+
+createButton("⬅️", 20, 70, () => {
+    me.x -= speed;
+    socket.emit("move", me);
+});
+
+createButton("➡️", 140, 70, () => {
+    me.x += speed;
+    socket.emit("move", me);
+});
