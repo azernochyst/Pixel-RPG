@@ -2,7 +2,6 @@ const socket = io();
 
 let myName = prompt("Your nickname:");
 if (!myName || myName.trim() === "") myName = "Player";
-
 socket.emit("setName", myName);
 
 const canvas = document.getElementById("game");
@@ -15,24 +14,16 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
-/* =========================
-   WORLD + PLAYER
-========================= */
 let world = { width: 2000, height: 2000 };
 let me = { x: 100, y: 100 };
 let players = {};
 let camera = { x: 0, y: 0 };
 let chatBubbles = {}; 
 
-/* =========================
-   SOCKET
-========================= */
-socket.on("players", (data) => {
-    players = data;
-});
+socket.on("players", (data) => { players = data; });
 
 /* =========================
-   CHAT
+   CHAT + COMMANDS
 ========================= */
 const chatBox = document.createElement("div");
 chatBox.style.position = "fixed";
@@ -50,7 +41,7 @@ document.body.appendChild(chatBox);
 
 const chatInput = document.createElement("input");
 chatInput.type = "text";
-chatInput.placeholder = "Chat...";
+chatInput.placeholder = "Chat or /cmd...";
 chatInput.style.position = "fixed";
 chatInput.style.top = "170px";
 chatInput.style.right = "10px";
@@ -60,7 +51,25 @@ document.body.appendChild(chatInput);
 
 chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && chatInput.value.trim() !== "") {
-        socket.emit("chat", chatInput.value);
+        const val = chatInput.value.trim();
+
+        if (val.startsWith("/")) {
+            const parts = val.split(" ");
+            const cmd = parts[0].toLowerCase();
+            const arg = parts.slice(1).join(" ");
+
+            if (cmd === "/nick" && arg !== "") {
+                socket.emit("changeName", arg);
+                myName = arg;
+            } else if (cmd === "/help") {
+                const help = document.createElement("div");
+                help.style.color = "yellow";
+                help.textContent = "Parancsok: /nick [név]";
+                chatBox.appendChild(help);
+            }
+        } else {
+            socket.emit("chat", val);
+        }
         chatInput.value = "";
     }
 });
@@ -70,15 +79,11 @@ socket.on("chat", (data) => {
     msg.textContent = data.name + ": " + data.msg;
     chatBox.appendChild(msg);
     chatBox.scrollTop = chatBox.scrollHeight;
-
-    chatBubbles[data.id] = {
-        text: data.msg,
-        time: Date.now() + 6000 
-    };
+    chatBubbles[data.id] = { text: data.msg, time: Date.now() + 6000 };
 });
 
 /* =========================
-   BACKGROUND + INPUT + UI
+   BACKGROUND, INPUT, DRAW
 ========================= */
 const bg = new Image();
 bg.src = "background.png";
@@ -137,9 +142,6 @@ function btn(text,left,bottom,cb){
 }
 btn("⚔️",140,200,()=>socket.emit("attack"));
 
-/* =========================
-   UPDATE + DRAW
-========================= */
 const speed = 4;
 function update() {
     const k = keys;
@@ -156,7 +158,6 @@ function draw() {
     ctx.clearRect(0,0,canvas.width,canvas.height);
     camera.x = Math.max(0, Math.min(me.x - canvas.width/2, world.width - canvas.width));
     camera.y = Math.max(0, Math.min(me.y - canvas.height/2, world.height - canvas.height));
-
     ctx.fillStyle = "#2e7d32";
     ctx.fillRect(0,0,canvas.width,canvas.height);
 
@@ -173,12 +174,10 @@ function draw() {
         const x = p.x - camera.x;
         const y = p.y - camera.y;
 
-        // 1. Karakter méret: 48x48
         const size = 48;
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, size, size);
 
-        // 2. HP sáv (igazítva az új mérethez)
         if (p.hp !== undefined) {
             ctx.fillStyle = "black";
             ctx.fillRect(x, y - 10, size, 6);
@@ -186,19 +185,16 @@ function draw() {
             ctx.fillRect(x, y - 10, size * (p.hp / 100), 6);
         }
 
-        // 3. Név (vastagabb, nagyobb, középre igazítva)
         ctx.fillStyle = "white";
         ctx.font = "bold 16px Arial";
         ctx.textAlign = "center";
         ctx.fillText(p.name || "Player", x + (size / 2), y - 20);
 
-        // 4. Buborék rajzolása
         if (chatBubbles[id] && chatBubbles[id].time > Date.now()) {
             ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
             const text = chatBubbles[id].text;
             ctx.font = "14px Arial";
             const textWidth = ctx.measureText(text).width;
-            
             ctx.fillRect(x + (size / 2) - (textWidth / 2) - 5, y - 65, textWidth + 10, 25);
             ctx.fillStyle = "white";
             ctx.fillText(text, x + (size / 2), y - 48);

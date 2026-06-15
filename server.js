@@ -26,11 +26,18 @@ io.on("connection", (socket) => {
 
     io.emit("players", players);
 
-    // NAME
+    // NAME (Initial)
     socket.on("setName", (name) => {
         if (players[socket.id]) {
-            // Megszorítás: max 15 karakteres nevek
             players[socket.id].name = name.toString().substring(0, 15);
+            io.emit("players", players);
+        }
+    });
+
+    // CHANGE NAME (Parancs)
+    socket.on("changeName", (newName) => {
+        if (players[socket.id]) {
+            players[socket.id].name = newName.toString().substring(0, 15);
             io.emit("players", players);
         }
     });
@@ -38,10 +45,8 @@ io.on("connection", (socket) => {
     // MOVE
     socket.on("move", (data) => {
         if (!players[socket.id]) return;
-
         players[socket.id].x = data.x;
         players[socket.id].y = data.y;
-
         io.emit("players", players);
     });
 
@@ -49,12 +54,9 @@ io.on("connection", (socket) => {
     socket.on("chat", (msg) => {
         const p = players[socket.id];
         if (!p || !msg) return;
-
-        // Megszorítás: max 50 karakteres üzenetek
         const cleanMsg = msg.toString().substring(0, 50);
-
         io.emit("chat", {
-            id: socket.id, // Ez a legfontosabb a buborékhoz
+            id: socket.id,
             name: p.name,
             msg: cleanMsg
         });
@@ -64,20 +66,15 @@ io.on("connection", (socket) => {
     socket.on("attack", () => {
         const attacker = players[socket.id];
         if (!attacker) return;
-
         const range = 60;
-
         for (const id in players) {
             if (id === socket.id) continue;
-
             const p = players[id];
             const dx = p.x - attacker.x;
             const dy = p.y - attacker.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-
             if (dist < range) {
                 p.hp -= 20;
-
                 if (p.hp <= 0) {
                     p.hp = 100;
                     p.x = 100 + Math.random() * 300;
@@ -95,9 +92,6 @@ io.on("connection", (socket) => {
     });
 });
 
-/* =========================
-   START SERVER
-========================= */
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log("Server running on port " + PORT);
