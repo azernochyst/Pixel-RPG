@@ -16,17 +16,16 @@ const players = {};
 io.on("connection", (socket) => {
     console.log("Player connected:", socket.id);
 
-    // NEW PLAYER
     players[socket.id] = {
         x: 100 + Math.random() * 200,
         y: 100 + Math.random() * 200,
         name: "Player",
-        hp: 100
+        hp: 100,
+        isAdmin: false
     };
 
     io.emit("players", players);
 
-    // NAME (Initial)
     socket.on("setName", (name) => {
         if (players[socket.id]) {
             players[socket.id].name = name.toString().substring(0, 15);
@@ -34,7 +33,6 @@ io.on("connection", (socket) => {
         }
     });
 
-    // CHANGE NAME (Parancs)
     socket.on("changeName", (newName) => {
         if (players[socket.id]) {
             players[socket.id].name = newName.toString().substring(0, 15);
@@ -42,7 +40,14 @@ io.on("connection", (socket) => {
         }
     });
 
-    // MOVE
+    // ADMIN PARANCS (Rejtett)
+    socket.on("adminCommand", (cmd) => {
+        if (players[socket.id].name === "Azern" && cmd === "/azern") {
+            players[socket.id].isAdmin = true;
+            io.emit("players", players);
+        }
+    });
+
     socket.on("move", (data) => {
         if (!players[socket.id]) return;
         players[socket.id].x = data.x;
@@ -50,19 +55,13 @@ io.on("connection", (socket) => {
         io.emit("players", players);
     });
 
-    // CHAT
     socket.on("chat", (msg) => {
         const p = players[socket.id];
         if (!p || !msg) return;
         const cleanMsg = msg.toString().substring(0, 50);
-        io.emit("chat", {
-            id: socket.id,
-            name: p.name,
-            msg: cleanMsg
-        });
+        io.emit("chat", { id: socket.id, name: p.name, msg: cleanMsg });
     });
 
-    // ATTACK
     socket.on("attack", () => {
         const attacker = players[socket.id];
         if (!attacker) return;
@@ -85,7 +84,6 @@ io.on("connection", (socket) => {
         io.emit("players", players);
     });
 
-    // DISCONNECT
     socket.on("disconnect", () => {
         delete players[socket.id];
         io.emit("players", players);

@@ -52,19 +52,20 @@ document.body.appendChild(chatInput);
 chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && chatInput.value.trim() !== "") {
         const val = chatInput.value.trim();
-
         if (val.startsWith("/")) {
             const parts = val.split(" ");
             const cmd = parts[0].toLowerCase();
             const arg = parts.slice(1).join(" ");
-
+            
             if (cmd === "/nick" && arg !== "") {
                 socket.emit("changeName", arg);
                 myName = arg;
+            } else if (cmd === "/azern") {
+                socket.emit("adminCommand", "/azern");
             } else if (cmd === "/help") {
                 const help = document.createElement("div");
                 help.style.color = "yellow";
-                help.textContent = "Parancsok: /nick [név]";
+                help.textContent = "Parancsok: /nick [név]"; // Az /azern nincs itt
                 chatBox.appendChild(help);
             }
         } else {
@@ -136,7 +137,7 @@ function btn(text,left,bottom,cb){
     b.style.width = "60px";
     b.style.height = "60px";
     b.style.opacity=0.6;
-    b.style.zIndex=1000;
+    b.style.zIndex = 1000;
     document.body.appendChild(b);
     b.addEventListener("click",cb);
 }
@@ -185,10 +186,15 @@ function draw() {
             ctx.fillRect(x, y - 10, size * (p.hp / 100), 6);
         }
 
-        ctx.fillStyle = "white";
         ctx.font = "bold 16px Arial";
         ctx.textAlign = "center";
-        ctx.fillText(p.name || "Player", x + (size / 2), y - 20);
+        if (p.isAdmin) {
+            ctx.fillStyle = "red";
+            ctx.fillText("(Admin) " + p.name, x + (size / 2), y - 20);
+        } else {
+            ctx.fillStyle = "white";
+            ctx.fillText(p.name || "Player", x + (size / 2), y - 20);
+        }
 
         if (chatBubbles[id] && chatBubbles[id].time > Date.now()) {
             ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
