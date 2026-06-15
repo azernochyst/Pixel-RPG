@@ -97,9 +97,7 @@ window.addEventListener("keydown", (e) => {
     if (e.key === "a") keys.a = true;
     if (e.key === "s") keys.s = true;
     if (e.key === "d") keys.d = true;
-    if (e.key === " ") {
-        socket.emit("attack");
-    }
+    if (e.key === " ") socket.emit("attack");
 });
 
 window.addEventListener("keyup", (e) => {
@@ -130,16 +128,16 @@ function holdBtn(text, left, bottom, key) {
 }
 holdBtn("W",80,140,"w"); holdBtn("S",80,20,"s"); holdBtn("A",20,80,"a"); holdBtn("D",140,80,"d");
 
-// GOMB COOLDOWN LOGIKA
-function btn(text,left,bottom,cb){
-    const b=document.createElement("button");
-    b.textContent=text;
-    b.style.position="fixed";
-    b.style.left=left+"px";
-    b.style.bottom=bottom+"px";
+// ÚJ: Támadás gomb a jobb oldalon
+function btn(text, right, bottom, cb){
+    const b = document.createElement("button");
+    b.textContent = text;
+    b.style.position = "fixed";
+    b.style.right = right + "px"; // Jobb oldal
+    b.style.bottom = bottom + "px";
     b.style.width = "60px";
     b.style.height = "60px";
-    b.style.opacity=0.6;
+    b.style.opacity = 0.6;
     b.style.zIndex = 1000;
     document.body.appendChild(b);
     
@@ -150,10 +148,10 @@ function btn(text,left,bottom,cb){
         setTimeout(() => {
             b.disabled = false;
             b.style.opacity = 0.6;
-        }, 1000); // 1 másodperces szünet
+        }, 1000);
     });
 }
-btn("⚔️",140,200,()=>socket.emit("attack"));
+btn("⚔️", 20, 80, () => socket.emit("attack"));
 
 const speed = 4;
 function update() {
