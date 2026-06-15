@@ -10,9 +10,6 @@ app.use(express.static("public"));
 
 const players = {};
 
-/* =========================
-   CONNECTION
-========================= */
 io.on("connection", (socket) => {
     console.log("Player connected:", socket.id);
 
@@ -21,7 +18,8 @@ io.on("connection", (socket) => {
         y: 100 + Math.random() * 200,
         name: "Player",
         hp: 100,
-        isAdmin: false
+        isAdmin: false,
+        lastAttackTime: 0 // ÚJ: Támadási időbélyeg
     };
 
     io.emit("players", players);
@@ -40,7 +38,6 @@ io.on("connection", (socket) => {
         }
     });
 
-    // ADMIN PARANCS (Rejtett)
     socket.on("adminCommand", (cmd) => {
         if (players[socket.id].name === "Azern" && cmd === "/azern") {
             players[socket.id].isAdmin = true;
@@ -62,9 +59,18 @@ io.on("connection", (socket) => {
         io.emit("chat", { id: socket.id, name: p.name, msg: cleanMsg });
     });
 
+    // TÁMADÁS COOLDOWN-NAL
     socket.on("attack", () => {
         const attacker = players[socket.id];
         if (!attacker) return;
+
+        const now = Date.now();
+        // 1000ms (1 másodperc) várakozási idő
+        if (attacker.lastAttackTime && (now - attacker.lastAttackTime < 1000)) {
+            return;
+        }
+        attacker.lastAttackTime = now;
+
         const range = 60;
         for (const id in players) {
             if (id === socket.id) continue;

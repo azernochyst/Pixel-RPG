@@ -65,7 +65,7 @@ chatInput.addEventListener("keydown", (e) => {
             } else if (cmd === "/help") {
                 const help = document.createElement("div");
                 help.style.color = "yellow";
-                help.textContent = "Parancsok: /nick [név]"; // Az /azern nincs itt
+                help.textContent = "Parancsok: /nick [név]";
                 chatBox.appendChild(help);
             }
         } else {
@@ -97,7 +97,9 @@ window.addEventListener("keydown", (e) => {
     if (e.key === "a") keys.a = true;
     if (e.key === "s") keys.s = true;
     if (e.key === "d") keys.d = true;
-    if (e.key === " ") socket.emit("attack");
+    if (e.key === " ") {
+        socket.emit("attack");
+    }
 });
 
 window.addEventListener("keyup", (e) => {
@@ -128,6 +130,7 @@ function holdBtn(text, left, bottom, key) {
 }
 holdBtn("W",80,140,"w"); holdBtn("S",80,20,"s"); holdBtn("A",20,80,"a"); holdBtn("D",140,80,"d");
 
+// GOMB COOLDOWN LOGIKA
 function btn(text,left,bottom,cb){
     const b=document.createElement("button");
     b.textContent=text;
@@ -139,7 +142,16 @@ function btn(text,left,bottom,cb){
     b.style.opacity=0.6;
     b.style.zIndex = 1000;
     document.body.appendChild(b);
-    b.addEventListener("click",cb);
+    
+    b.addEventListener("click", () => {
+        cb();
+        b.disabled = true;
+        b.style.opacity = 0.2;
+        setTimeout(() => {
+            b.disabled = false;
+            b.style.opacity = 0.6;
+        }, 1000); // 1 másodperces szünet
+    });
 }
 btn("⚔️",140,200,()=>socket.emit("attack"));
 
