@@ -22,7 +22,7 @@ let world = { width: 2000, height: 2000 };
 let me = { x: 100, y: 100 };
 let players = {};
 let camera = { x: 0, y: 0 };
-let chatBubbles = {}; // ÚJ: Itt tároljuk a buborékokat
+let chatBubbles = {}; 
 
 /* =========================
    SOCKET
@@ -66,13 +66,11 @@ chatInput.addEventListener("keydown", (e) => {
 });
 
 socket.on("chat", (data) => {
-    // Chat box frissítése
     const msg = document.createElement("div");
     msg.textContent = data.name + ": " + data.msg;
     chatBox.appendChild(msg);
     chatBox.scrollTop = chatBox.scrollHeight;
 
-    // ITT MÓDOSÍTVA: 6 másodpercre állítva (6000 ms)
     chatBubbles[data.id] = {
         text: data.msg,
         time: Date.now() + 6000 
@@ -130,8 +128,8 @@ function btn(text,left,bottom,cb){
     b.style.position="fixed";
     b.style.left=left+"px";
     b.style.bottom=bottom+"px";
-    b.style.width="60px";
-    b.style.height="60px";
+    b.style.width = "60px";
+    b.style.height = "60px";
     b.style.opacity=0.6;
     b.style.zIndex=1000;
     document.body.appendChild(b);
@@ -175,28 +173,35 @@ function draw() {
         const x = p.x - camera.x;
         const y = p.y - camera.y;
 
+        // 1. Karakter méret: 48x48
+        const size = 48;
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
-        ctx.fillRect(x, y, 32, 32);
+        ctx.fillRect(x, y, size, size);
 
+        // 2. HP sáv (igazítva az új mérethez)
         if (p.hp !== undefined) {
             ctx.fillStyle = "black";
-            ctx.fillRect(x, y - 18, 32, 5);
+            ctx.fillRect(x, y - 10, size, 6);
             ctx.fillStyle = "lime";
-            ctx.fillRect(x, y - 18, 32 * (p.hp / 100), 5);
+            ctx.fillRect(x, y - 10, size * (p.hp / 100), 6);
         }
 
+        // 3. Név (vastagabb, nagyobb, középre igazítva)
         ctx.fillStyle = "white";
-        ctx.font = "12px Arial";
-        ctx.fillText(p.name || "Player", x, y + 45);
+        ctx.font = "bold 16px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(p.name || "Player", x + (size / 2), y - 20);
 
-        // Buborék rajzolása
+        // 4. Buborék rajzolása
         if (chatBubbles[id] && chatBubbles[id].time > Date.now()) {
             ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
             const text = chatBubbles[id].text;
+            ctx.font = "14px Arial";
             const textWidth = ctx.measureText(text).width;
-            ctx.fillRect(x + 16 - (textWidth / 2) - 5, y - 40, textWidth + 10, 20);
+            
+            ctx.fillRect(x + (size / 2) - (textWidth / 2) - 5, y - 65, textWidth + 10, 25);
             ctx.fillStyle = "white";
-            ctx.fillText(text, x + 16 - (textWidth / 2), y - 26);
+            ctx.fillText(text, x + (size / 2), y - 48);
         }
     }
     requestAnimationFrame(draw);
