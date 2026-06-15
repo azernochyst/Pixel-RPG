@@ -72,15 +72,15 @@ socket.on("chat", (data) => {
     chatBox.appendChild(msg);
     chatBox.scrollTop = chatBox.scrollHeight;
 
-    // ÚJ: Buborék adatainak tárolása (id alapján)
+    // ITT MÓDOSÍTVA: 6 másodpercre állítva (6000 ms)
     chatBubbles[data.id] = {
         text: data.msg,
-        time: Date.now() + 3000 // 3 másodpercig látható
+        time: Date.now() + 6000 
     };
 });
 
 /* =========================
-   BACKGROUND + INPUT + UI ( változatlan )
+   BACKGROUND + INPUT + UI
 ========================= */
 const bg = new Image();
 bg.src = "background.png";
@@ -189,7 +189,7 @@ function draw() {
         ctx.font = "12px Arial";
         ctx.fillText(p.name || "Player", x, y + 45);
 
-        // ÚJ: Buborék rajzolása
+        // Buborék rajzolása
         if (chatBubbles[id] && chatBubbles[id].time > Date.now()) {
             ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
             const text = chatBubbles[id].text;
