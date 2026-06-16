@@ -3,7 +3,6 @@ const socket = io();
 /* =========================
    LOGIN UI AND LOGIC
 ========================= */
-// Creating the login screen dynamically
 const loginScreen = document.createElement("div");
 loginScreen.id = "login-screen";
 loginScreen.style.position = "fixed";
@@ -20,7 +19,6 @@ loginScreen.style.zIndex = "9999";
 loginScreen.style.color = "white";
 loginScreen.style.fontFamily = "Arial, sans-serif";
 
-// Updated title to FIDELITY TOWN RPG, color to RED, and texts to English
 loginScreen.innerHTML = `
     <h2 style="margin-bottom: 20px; letter-spacing: 2px; color: #ff3333;">FIDELITY TOWN RPG</h2>
     <input type="text" id="username" placeholder="Username" style="padding: 12px; margin: 6px; width: 220px; border: none; border-radius: 4px; background: #333; color: white;">
@@ -68,7 +66,6 @@ socket.on("loginResponse", (data) => {
         myName = data.username;
         gameStarted = true;
     } else {
-        // Translating server error messages to English for the client
         if (data.message === "Ez a felhasználónév már foglalt!") {
             loginError.textContent = "This username is already taken!";
         } else if (data.message === "Nincs ilyen felhasználó! Regisztrálj előbb.") {
@@ -86,7 +83,7 @@ socket.on("loginResponse", (data) => {
 });
 
 /* =========================
-   GAME BASICS
+   GAME BASICS & ASSETS
 ========================= */
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -98,11 +95,22 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
+// IMAGES
+const bg = new Image();
+bg.src = "background.png";
+
+const swordImg = new Image();
+swordImg.src = "sword.png"; // Make sure to put sword.png into your public folder!
+
 let world = { width: 2000, height: 2000 };
 let me = { x: 100, y: 100 };
 let players = {};
 let camera = { x: 0, y: 0 };
 let chatBubbles = {}; 
+
+// WEAPON SYSTEM LOCAL VARIABLES
+let myDirection = "down"; // Local player's current direction
+let attackVisualTimer = 0; // Timer to animate the swing locally
 
 socket.on("players", (data) => { 
     players = data; 
@@ -174,23 +182,26 @@ socket.on("chat", (data) => {
 });
 
 /* =========================
-   BACKGROUND, INPUT, DRAW
+   INPUTS & MOVEMENT
 ========================= */
-const bg = new Image();
-bg.src = "background.png";
-
 let keys = { w:false,a:false,s:false,d:false };
 let mobile = { w:false,a:false,s:false,d:false };
+
+// Trigger local weapon swing
+function localAttack() {
+    socket.emit("attack");
+    attackVisualTimer = 10; // Holds the swing animation for 10 frames (~160ms)
+}
 
 window.addEventListener("keydown", (e) => {
     if (!gameStarted) return; 
     if (document.activeElement === chatInput || document.activeElement === usernameInput || document.activeElement === passwordInput) return; 
 
-    if (e.key === "w") keys.w = true;
-    if (e.key === "a") keys.a = true;
-    if (e.key === "s") keys.s = true;
-    if (e.key === "d") keys.d = true;
-    if (e.key === " ") socket.emit("attack");
+    if (e.key === "w") { keys.w = true; myDirection = "up"; }
+    if (e.key === "a") { keys.a = true; myDirection = "left"; }
+    if (e.key === "s") { keys.s = true; myDirection = "down"; }
+    if (e.key === "d") { keys.d = true; myDirection = "right"; }
+    if (e.key === " ") localAttack();
 });
 
 window.addEventListener("keyup", (e) => {
@@ -200,7 +211,7 @@ window.addEventListener("keyup", (e) => {
     if (e.key === "d") keys.d = false;
 });
 
-function holdBtn(text, left, bottom, key) {
+function holdBtn(text, left, bottom, key, dir) {
     const b = document.createElement("button");
     b.textContent = text;
     b.style.position = "fixed";
@@ -211,7 +222,12 @@ function holdBtn(text, left, bottom, key) {
     b.style.opacity = 0.6;
     b.style.zIndex = 1000;
     document.body.appendChild(b);
-    const on = () => { if(gameStarted) mobile[key] = true; };
+    const on = () => { 
+        if(gameStarted) {
+            mobile[key] = true; 
+            myDirection = dir;
+        }
+    };
     const off = () => mobile[key] = false;
     b.addEventListener("touchstart", (e)=>{e.preventDefault(); on();});
     b.addEventListener("touchend", off);
@@ -219,7 +235,7 @@ function holdBtn(text, left, bottom, key) {
     b.addEventListener("mouseup", off);
     b.addEventListener("mouseleave", off);
 }
-holdBtn("W",80,140,"w"); holdBtn("S",80,20,"s"); holdBtn("A",20,80,"a"); holdBtn("D",140,80,"d");
+holdBtn("W",80,140,"w","up"); holdBtn("S",80,20,"s","down"); holdBtn("A",20,80,"a","left"); holdBtn("D",140,80,"d","right");
 
 function btn(text, right, bottom, cb){
     const b = document.createElement("button");
@@ -244,7 +260,7 @@ function btn(text, right, bottom, cb){
         }, 1000);
     });
 }
-btn("⚔️", 20, 80, () => socket.emit("attack"));
+btn("⚔️", 20, 80, () => localAttack());
 
 const speed = 4;
 function update() {
@@ -254,9 +270,18 @@ function update() {
     if (k.s || m.s) me.y += speed;
     if (k.a || m.a) me.x -= speed;
     if (k.d || m.d) me.x += speed;
+    
+    // We append the local direction to the move object so the server knows it (and can pass it to other players)
+    me.direction = myDirection;
     socket.emit("move", me);
+
+    // Tick down the visual swing timer
+    if (attackVisualTimer > 0) attackVisualTimer--;
 }
 
+/* =========================
+   DRAWING SYSTEM WITH WEAPON
+========================= */
 function draw() {
     if (!gameStarted) {
         requestAnimationFrame(draw);
@@ -282,11 +307,55 @@ function draw() {
         const p = players[id];
         const x = p.x - camera.x;
         const y = p.y - camera.y;
-
         const size = 48;
+
+        // 1. Draw Player Base
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, size, size);
 
+        // 2. DRAW SWORD (Only if the image is loaded)
+        if (swordImg.complete && swordImg.naturalWidth > 0) {
+            ctx.save();
+            
+            // Center of rotation is the middle of the player box
+            const centerX = x + size / 2;
+            const centerY = y + size / 2;
+            ctx.translate(centerX, centerY);
+
+            // Determine player's direction (fallbacks to "down" if undefined)
+            let dir = p.direction || "down";
+            
+            // Set basic rotation angle based on direction
+            let angle = 0;
+            if (dir === "down") angle = 0;
+            if (dir === "up") angle = Math.PI; // 180 degrees
+            if (dir === "left") angle = Math.PI / 2; // 90 degrees
+            if (dir === "right") angle = -Math.PI / 2; // -90 degrees
+
+            // If THIS player is attacking, add a swing angle shift
+            if (id === socket.id && attackVisualTimer > 0) {
+                // Creates a swift hack/slash angle modification
+                angle += Math.sin((attackVisualTimer / 10) * Math.PI) * 0.6;
+            }
+
+            ctx.rotate(angle);
+
+            // Positioning the sword relative to the center of the player
+            // By default pointing downwards.
+            const swordW = 16;
+            const swordH = 32;
+            
+            // Normal distance from body, pushes out further if swinging
+            let offset = 12;
+            if (id === socket.id && attackVisualTimer > 0) offset = 22; 
+
+            // Drawing the sword image (pointing down relative to the transformed grid)
+            ctx.drawImage(swordImg, -swordW / 2, offset, swordW, swordH);
+            
+            ctx.restore();
+        }
+
+        // 3. Draw UI (HP Bar)
         if (p.hp !== undefined) {
             ctx.fillStyle = "black";
             ctx.fillRect(x, y - 10, size, 6);
@@ -294,6 +363,7 @@ function draw() {
             ctx.fillRect(x, y - 10, size * (p.hp / 100), 6);
         }
 
+        // 4. Draw Name Tag
         ctx.font = "bold 16px Arial";
         ctx.textAlign = "center";
         if (p.isAdmin) {
@@ -304,6 +374,7 @@ function draw() {
             ctx.fillText(p.name || "Player", x + (size / 2), y - 20);
         }
 
+        // 5. Draw Chat Bubbles
         if (chatBubbles[id] && chatBubbles[id].time > Date.now()) {
             ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
             const text = chatBubbles[id].text;
