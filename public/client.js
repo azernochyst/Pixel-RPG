@@ -1,9 +1,9 @@
 const socket = io();
 
 /* =========================
-   LOGIN UI ÉS LOGIKA
+   LOGIN UI AND LOGIC
 ========================= */
-// Dinamikusan létrehozzuk a login felületet, hogy ne kelljen az index.html-t faragni
+// Creating the login screen dynamically
 const loginScreen = document.createElement("div");
 loginScreen.id = "login-screen";
 loginScreen.style.position = "fixed";
@@ -20,13 +20,14 @@ loginScreen.style.zIndex = "9999";
 loginScreen.style.color = "white";
 loginScreen.style.fontFamily = "Arial, sans-serif";
 
+// Updated title to FIDELITY TOWN RPG, color to RED, and texts to English
 loginScreen.innerHTML = `
-    <h2 style="margin-bottom: 20px; letter-spacing: 2px; color: #4caf50;">PIXEL RPG</h2>
-    <input type="text" id="username" placeholder="Felhasználónév" style="padding: 12px; margin: 6px; width: 220px; border: none; border-radius: 4px; background: #333; color: white;">
-    <input type="password" id="password" placeholder="Jelszó" style="padding: 12px; margin: 6px; width: 220px; border: none; border-radius: 4px; background: #333; color: white;">
+    <h2 style="margin-bottom: 20px; letter-spacing: 2px; color: #ff3333;">FIDELITY TOWN RPG</h2>
+    <input type="text" id="username" placeholder="Username" style="padding: 12px; margin: 6px; width: 220px; border: none; border-radius: 4px; background: #333; color: white;">
+    <input type="password" id="password" placeholder="Password" style="padding: 12px; margin: 6px; width: 220px; border: none; border-radius: 4px; background: #333; color: white;">
     <div style="margin-top: 15px;">
-        <button id="btn-login" style="padding: 10px 20px; margin: 5px; cursor: pointer; border: none; border-radius: 4px; background: #4caf50; color: white; font-weight: bold;">Belépés</button>
-        <button id="btn-register" style="padding: 10px 20px; margin: 5px; cursor: pointer; border: none; border-radius: 4px; background: #2196f3; color: white; font-weight: bold;">Regisztráció</button>
+        <button id="btn-login" style="padding: 10px 20px; margin: 5px; cursor: pointer; border: none; border-radius: 4px; background: #ff3333; color: white; font-weight: bold;">Login</button>
+        <button id="btn-register" style="padding: 10px 20px; margin: 5px; cursor: pointer; border: none; border-radius: 4px; background: #2196f3; color: white; font-weight: bold;">Register</button>
     </div>
     <p id="login-error" style="color: #ff5252; margin-top: 15px; font-size: 14px; height: 20px;"></p>
 `;
@@ -39,7 +40,7 @@ const btnRegister = document.getElementById("btn-register");
 const loginError = document.getElementById("login-error");
 
 let myName = "Player";
-let gameStarted = false; // Figyeljük, elindult-e a játékmenet
+let gameStarted = false; 
 
 btnRegister.addEventListener("click", () => {
     const user = usernameInput.value.trim();
@@ -47,7 +48,7 @@ btnRegister.addEventListener("click", () => {
     if (user && pass) {
         socket.emit("register", { username: user, password: pass });
     } else {
-        loginError.textContent = "Töltsd ki mindkét mezőt!";
+        loginError.textContent = "Please fill in both fields!";
     }
 });
 
@@ -57,7 +58,7 @@ btnLogin.addEventListener("click", () => {
     if (user && pass) {
         socket.emit("login", { username: user, password: pass });
     } else {
-        loginError.textContent = "Töltsd ki mindkét mezőt!";
+        loginError.textContent = "Please fill in both fields!";
     }
 });
 
@@ -67,12 +68,25 @@ socket.on("loginResponse", (data) => {
         myName = data.username;
         gameStarted = true;
     } else {
-        loginError.textContent = data.message;
+        // Translating server error messages to English for the client
+        if (data.message === "Ez a felhasználónév már foglalt!") {
+            loginError.textContent = "This username is already taken!";
+        } else if (data.message === "Nincs ilyen felhasználó! Regisztrálj előbb.") {
+            loginError.textContent = "User does not exist! Please register first.";
+        } else if (data.message === "Hibás jelszó!") {
+            loginError.textContent = "Incorrect password!";
+        } else if (data.message === "A mezők nem lehetnek üresek!") {
+            loginError.textContent = "Fields cannot be empty!";
+        } else if (data.message === "Hiányzó adatok!") {
+            loginError.textContent = "Missing data!";
+        } else {
+            loginError.textContent = data.message;
+        }
     }
 });
 
 /* =========================
-   JÁTÉK ALAPOK
+   GAME BASICS
 ========================= */
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -92,7 +106,6 @@ let chatBubbles = {};
 
 socket.on("players", (data) => { 
     players = data; 
-    // Ha a saját adatainkat frissíti a szerver, szinkronizáljuk a helyi pozíciót az első belépésnél
     if (players[socket.id] && me.x === 100 && me.y === 100) {
         me.x = players[socket.id].x;
         me.y = players[socket.id].y;
@@ -142,7 +155,7 @@ chatInput.addEventListener("keydown", (e) => {
             } else if (cmd === "/help") {
                 const help = document.createElement("div");
                 help.style.color = "yellow";
-                help.textContent = "Parancsok: /nick [név]";
+                help.textContent = "Commands: /nick [name]";
                 chatBox.appendChild(help);
             }
         } else {
@@ -170,8 +183,8 @@ let keys = { w:false,a:false,s:false,d:false };
 let mobile = { w:false,a:false,s:false,d:false };
 
 window.addEventListener("keydown", (e) => {
-    if (!gameStarted) return; // Ne lehessen mozogni login közben
-    if (document.activeElement === chatInput || document.activeElement === usernameInput || document.activeElement === passwordInput) return; // Ne mozogjon, ha gépel
+    if (!gameStarted) return; 
+    if (document.activeElement === chatInput || document.activeElement === usernameInput || document.activeElement === passwordInput) return; 
 
     if (e.key === "w") keys.w = true;
     if (e.key === "a") keys.a = true;
@@ -245,7 +258,6 @@ function update() {
 }
 
 function draw() {
-    // Ha még nem indult el a játék, megállítjuk a renderelést
     if (!gameStarted) {
         requestAnimationFrame(draw);
         return;
