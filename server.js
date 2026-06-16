@@ -1,6 +1,8 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
+const sqlite3 = require("sqlite3").verbose();
+const bcrypt = require("bcrypt");
 
 const app = express();
 const server = http.createServer(app);
@@ -8,15 +10,28 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
+// 1. ADATBÁZIS LÉTREHOZÁSA / MEGNYITÁSA
+// Létrehoz egy 'database.db' fájlt a projekt mappájában, ha még nincs ott.
+const db = new sqlite3.Database("./database.db", (err) => {
+    if (err) console.error("Adatbázis hiba:", err.message);
+    else console.log("Sikeresen kapcsolódva az SQLite adatbázishoz.");
+});
+
+// 2. FELHASZNÁLÓI TÁBLA LÉTREHOZÁSA
+// Biztosítja, hogy a szükséges struktúra (id, egyedi név, titkosított jelszó) meglegyen.
+db.run(`CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE,
+    password TEXT
+)`);
+
 const players = {};
-// Memóriában tárolt felhasználók regisztrációhoz (Szerver restartkor ürül)
-const registeredUsers = {}; 
 
 io.on("connection", (socket) => {
     console.log("Player connected:", socket.id);
 
-    // REGISZTRÁCIÓ KEZELÉSE
-    socket.on("register", (data) => {
+    // REGISZTRÁCIÓ KEZELÉSE (ADATBÁZISSAL)
+    socket.on("register", async (data) => {
         if (!data || !data.username || !data.password) {
             return socket.emit("loginResponse", { success: false, message: "Hiányzó adatok!" });
         }
@@ -27,19 +42,33 @@ io.on("connection", (socket) => {
             return socket.emit("loginResponse", { success: false, message: "A mezők nem lehetnek üresek!" });
         }
 
-        if (registeredUsers[username]) {
-            socket.emit("loginResponse", { success: false, message: "Ez a felhasználónév már foglalt!" });
-        } else {
-            // Mentés a memóriába
-            registeredUsers[username] = password;
-            socket.emit("loginResponse", { success: true, username: username });
-            
-            // Játékos inicializálása a világban
-            initPlayer(socket, username);
+        try {
+            // Jelszó biztonságos titkosítása
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            // Megpróbáljuk beszúrni az új rekordot az adatbázisba
+            const sql = `INSERT INTO users (username, password) VALUES (?, ?)`;
+            db.run(sql, [username, hashedPassword], function (err) {
+                if (err) {
+                    // Ha a hibaüzenet tartalmazza, hogy 'UNIQUE', az azt jelenti a név már létezik
+                    if (err.message.includes("UNIQUE")) {
+                        return socket.emit("loginResponse", { success: false, message: "Ez a felhasználónév már foglalt!" });
+                    }
+                    return socket.emit("loginResponse", { success: false, message: "Adatbázis hiba történt." });
+                }
+
+                console.log(`Új felhasználó regisztrálva az adatbázisba: ${username}`);
+                socket.emit("loginResponse", { success: true, username: username });
+                
+                // Játékos inicializálása a világban
+                initPlayer(socket, username);
+            });
+        } catch (e) {
+            socket.emit("loginResponse", { success: false, message: "Szerver hiba a regisztráció során." });
         }
     });
 
-    // BELÉPÉS KEZELÉSE
+    // BELÉPÉS KEZELÉSE (ADATBÁZISSAL)
     socket.on("login", (data) => {
         if (!data || !data.username || !data.password) {
             return socket.emit("loginResponse", { success: false, message: "Hiányzó adatok!" });
@@ -47,17 +76,28 @@ io.on("connection", (socket) => {
         const username = data.username.trim().substring(0, 15);
         const password = data.password.trim();
 
-        if (!registeredUsers[username]) {
-            socket.emit("loginResponse", { success: false, message: "Nincs ilyen felhasználó! Regisztrálj előbb." });
-        } else if (registeredUsers[username] !== password) {
-            socket.emit("loginResponse", { success: false, message: "Hibás jelszó!" });
-        } else {
-            // Sikeres belépés
-            socket.emit("loginResponse", { success: true, username: username });
-            
-            // Játékos inicializálása a világban
-            initPlayer(socket, username);
-        }
+        // Kikérjük a felhasználót a név alapján
+        const sql = `SELECT * FROM users WHERE username = ?`;
+        db.get(sql, [username], async (err, row) => {
+            if (err) {
+                return socket.emit("loginResponse", { success: false, message: "Adatbázis hiba történt." });
+            }
+            if (!row) {
+                return socket.emit("loginResponse", { success: false, message: "Nincs ilyen felhasználó! Regisztrálj előbb." });
+            }
+
+            // Összehasonlítjuk a beírt nyers jelszót az adatbázisban lévő titkosított jelszóval
+            const match = await bcrypt.compare(password, row.password);
+            if (match) {
+                // Sikeres belépés
+                socket.emit("loginResponse", { success: true, username: username });
+                
+                // Játékos inicializálása a világban
+                initPlayer(socket, username);
+            } else {
+                socket.emit("loginResponse", { success: false, message: "Hibás jelszó!" });
+            }
+        });
     });
 
     // Közös segédfüggvény a játékos világba helyezéséhez
@@ -73,7 +113,6 @@ io.on("connection", (socket) => {
         io.emit("players", players);
     }
 
-    // A korábbi névbeállító eseményekre már nincs szükségünk a login miatt, de a /nick parancshoz a changeName-et meghagyjuk:
     socket.on("changeName", (newName) => {
         if (players[socket.id]) {
             players[socket.id].name = newName.toString().substring(0, 15);
