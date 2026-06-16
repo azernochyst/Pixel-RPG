@@ -308,39 +308,41 @@ function draw() {
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, size, size);
 
-        // 2. DRAW SWORD (GIANT VERSION)
+        // 2. DRAW SWORD (PERFECT SIZE & HAND POSITION)
         if (swordImg.complete && swordImg.naturalWidth > 0) {
             ctx.save();
             
-            const centerX = x + size / 2;
-            const centerY = y + size / 2;
-            ctx.translate(centerX, centerY);
+            // The pivot point is now the local player's right hand area (bottom-right of the cube)
+            const handX = x + size - 8;
+            const handY = y + size - 8;
+            ctx.translate(handX, handY);
 
             let dir = p.direction || "down";
             
+            // Setup base rotation according to walking direction
             let angle = 0;
-            if (dir === "down") angle = 0;
-            if (dir === "up") angle = Math.PI; 
-            if (dir === "left") angle = Math.PI / 2; 
-            if (dir === "right") angle = -Math.PI / 2; 
+            if (dir === "down") angle = 0;                     // Pointing down-forward
+            if (dir === "up") angle = Math.PI;                // Pointing up-forward
+            if (dir === "left") angle = Math.PI / 2;          // Pointing left-forward
+            if (dir === "right") angle = -Math.PI / 2;         // Pointing right-forward
 
+            // Attack animation (slashing outward from the hand pivot)
             if (id === socket.id && attackVisualTimer > 0) {
-                // Energetic slash sweep
-                angle += Math.sin((attackVisualTimer / 10) * Math.PI) * 0.9; 
+                angle += Math.sin((attackVisualTimer / 10) * Math.PI) * 1.1; 
             }
 
             ctx.rotate(angle);
 
-            // CHANGED: Massive size boost (Almost as long as the player cube!)
-            const swordW = 32;  // Up from 24
-            const swordH = 70;  // Up from 52
+            // SET TO CHARACTER SIZE: 48x48 pixels matching the player box!
+            const swordW = 48;  
+            const swordH = 48;  
             
-            // CHANGED: Calibrated offsets so the handle stays perfectly in character bounds
-            let offset = 8;
-            if (id === socket.id && attackVisualTimer > 0) offset = 22; 
+            // Adjusting the pivot to the actual handle inside the 64x64/48x48 image grid
+            // We draw the handle directly overlapping the translation point (handX, handY)
+            let swingOffset = 0;
+            if (id === socket.id && attackVisualTimer > 0) swingOffset = 12; // Pushes out slightly when swinging
 
-            // CHANGED: Aligned the center-x pivot (-swordW / 3) for ideal giant look
-            ctx.drawImage(swordImg, -swordW / 3, offset, swordW, swordH);
+            ctx.drawImage(swordImg, -swordW / 2, -12 + swingOffset, swordW, swordH);
             
             ctx.restore();
         }
