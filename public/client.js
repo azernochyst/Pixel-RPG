@@ -308,7 +308,7 @@ function draw() {
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, size, size);
 
-        // 2. DRAW SWORD (UPDATED SIZE AND POSITION)
+        // 2. DRAW SWORD (GIANT VERSION)
         if (swordImg.complete && swordImg.naturalWidth > 0) {
             ctx.save();
             
@@ -325,21 +325,22 @@ function draw() {
             if (dir === "right") angle = -Math.PI / 2; 
 
             if (id === socket.id && attackVisualTimer > 0) {
-                angle += Math.sin((attackVisualTimer / 10) * Math.PI) * 0.8; // Snappier slash effect
+                // Energetic slash sweep
+                angle += Math.sin((attackVisualTimer / 10) * Math.PI) * 0.9; 
             }
 
             ctx.rotate(angle);
 
-            // CHANGED: Increased sword display dimensions
-            const swordW = 24;  // Width up from 16
-            const swordH = 52;  // Height up from 32
+            // CHANGED: Massive size boost (Almost as long as the player cube!)
+            const swordW = 32;  // Up from 24
+            const swordH = 70;  // Up from 52
             
-            // CHANGED: Pushed out the basic offset so it is clearly visible
-            let offset = 20;
-            if (id === socket.id && attackVisualTimer > 0) offset = 32; 
+            // CHANGED: Calibrated offsets so the handle stays perfectly in character bounds
+            let offset = 8;
+            if (id === socket.id && attackVisualTimer > 0) offset = 22; 
 
-            // CHANGED: Shifted slightly to the right (-12 -> -4) to position it into a "hand" instead of perfectly dead center
-            ctx.drawImage(swordImg, -swordW / 4, offset, swordW, swordH);
+            // CHANGED: Aligned the center-x pivot (-swordW / 3) for ideal giant look
+            ctx.drawImage(swordImg, -swordW / 3, offset, swordW, swordH);
             
             ctx.restore();
         }
