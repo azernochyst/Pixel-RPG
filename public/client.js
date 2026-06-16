@@ -308,41 +308,40 @@ function draw() {
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, size, size);
 
-        // 2. DRAW SWORD (PERFECT SIZE & HAND POSITION)
+        // 2. DRAW SWORD (ANIME / BUSTER SIZE & CORRECT HAND POSITION)
         if (swordImg.complete && swordImg.naturalWidth > 0) {
             ctx.save();
             
-            // The pivot point is now the local player's right hand area (bottom-right of the cube)
-            const handX = x + size - 8;
-            const handY = y + size - 8;
+            // A forgatási középpontot a karakter jobb alsó "kezéhez" igazítjuk (beljebb tova a testen)
+            const handX = x + size - 14; 
+            const handY = y + size - 14; 
             ctx.translate(handX, handY);
 
             let dir = p.direction || "down";
             
-            // Setup base rotation according to walking direction
             let angle = 0;
-            if (dir === "down") angle = 0;                     // Pointing down-forward
-            if (dir === "up") angle = Math.PI;                // Pointing up-forward
-            if (dir === "left") angle = Math.PI / 2;          // Pointing left-forward
-            if (dir === "right") angle = -Math.PI / 2;         // Pointing right-forward
+            if (dir === "down") angle = 0;                     
+            if (dir === "up") angle = Math.PI;                
+            if (dir === "left") angle = Math.PI / 2;          
+            if (dir === "right") angle = -Math.PI / 2;         
 
-            // Attack animation (slashing outward from the hand pivot)
+            // Támadás suhintás animáció
             if (id === socket.id && attackVisualTimer > 0) {
-                angle += Math.sin((attackVisualTimer / 10) * Math.PI) * 1.1; 
+                angle += Math.sin((attackVisualTimer / 10) * Math.PI) * 1.2; 
             }
 
             ctx.rotate(angle);
 
-            // SET TO CHARACTER SIZE: 48x48 pixels matching the player box!
-            const swordW = 48;  
-            const swordH = 48;  
+            // GIGANTIKUS MÉRET: 96x96 pixelre növelve, hogy kompenzáljuk a kép transzparens széleit!
+            const swordW = 96;  
+            const swordH = 96;  
             
-            // Adjusting the pivot to the actual handle inside the 64x64/48x48 image grid
-            // We draw the handle directly overlapping the translation point (handX, handY)
+            // Az eltolással elértük, hogy a 96x96-os textúra sarkában lévő markolat pontosan a handX/handY ponthoz ragadjon
             let swingOffset = 0;
-            if (id === socket.id && attackVisualTimer > 0) swingOffset = 12; // Pushes out slightly when swinging
+            if (id === socket.id && attackVisualTimer > 0) swingOffset = 10; 
 
-            ctx.drawImage(swordImg, -swordW / 2, -12 + swingOffset, swordW, swordH);
+            // Újraszámolt pivot eltolás, hogy a nyél mélyen a piros négyzetbe lógjon
+            ctx.drawImage(swordImg, -swordW / 2 + 10, -swordH / 2 + 14 + swingOffset, swordW, swordH);
             
             ctx.restore();
         }
