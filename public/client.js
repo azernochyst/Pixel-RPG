@@ -95,12 +95,11 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
-// IMAGES
 const bg = new Image();
 bg.src = "background.png";
 
 const swordImg = new Image();
-swordImg.src = "sword.png"; // Make sure to put sword.png into your public folder!
+swordImg.src = "sword.png"; 
 
 let world = { width: 2000, height: 2000 };
 let me = { x: 100, y: 100 };
@@ -108,9 +107,8 @@ let players = {};
 let camera = { x: 0, y: 0 };
 let chatBubbles = {}; 
 
-// WEAPON SYSTEM LOCAL VARIABLES
-let myDirection = "down"; // Local player's current direction
-let attackVisualTimer = 0; // Timer to animate the swing locally
+let myDirection = "down"; 
+let attackVisualTimer = 0; 
 
 socket.on("players", (data) => { 
     players = data; 
@@ -187,10 +185,9 @@ socket.on("chat", (data) => {
 let keys = { w:false,a:false,s:false,d:false };
 let mobile = { w:false,a:false,s:false,d:false };
 
-// Trigger local weapon swing
 function localAttack() {
     socket.emit("attack");
-    attackVisualTimer = 10; // Holds the swing animation for 10 frames (~160ms)
+    attackVisualTimer = 10; 
 }
 
 window.addEventListener("keydown", (e) => {
@@ -271,11 +268,9 @@ function update() {
     if (k.a || m.a) me.x -= speed;
     if (k.d || m.d) me.x += speed;
     
-    // We append the local direction to the move object so the server knows it (and can pass it to other players)
     me.direction = myDirection;
     socket.emit("move", me);
 
-    // Tick down the visual swing timer
     if (attackVisualTimer > 0) attackVisualTimer--;
 }
 
@@ -313,44 +308,38 @@ function draw() {
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, size, size);
 
-        // 2. DRAW SWORD (Only if the image is loaded)
+        // 2. DRAW SWORD (UPDATED SIZE AND POSITION)
         if (swordImg.complete && swordImg.naturalWidth > 0) {
             ctx.save();
             
-            // Center of rotation is the middle of the player box
             const centerX = x + size / 2;
             const centerY = y + size / 2;
             ctx.translate(centerX, centerY);
 
-            // Determine player's direction (fallbacks to "down" if undefined)
             let dir = p.direction || "down";
             
-            // Set basic rotation angle based on direction
             let angle = 0;
             if (dir === "down") angle = 0;
-            if (dir === "up") angle = Math.PI; // 180 degrees
-            if (dir === "left") angle = Math.PI / 2; // 90 degrees
-            if (dir === "right") angle = -Math.PI / 2; // -90 degrees
+            if (dir === "up") angle = Math.PI; 
+            if (dir === "left") angle = Math.PI / 2; 
+            if (dir === "right") angle = -Math.PI / 2; 
 
-            // If THIS player is attacking, add a swing angle shift
             if (id === socket.id && attackVisualTimer > 0) {
-                // Creates a swift hack/slash angle modification
-                angle += Math.sin((attackVisualTimer / 10) * Math.PI) * 0.6;
+                angle += Math.sin((attackVisualTimer / 10) * Math.PI) * 0.8; // Snappier slash effect
             }
 
             ctx.rotate(angle);
 
-            // Positioning the sword relative to the center of the player
-            // By default pointing downwards.
-            const swordW = 16;
-            const swordH = 32;
+            // CHANGED: Increased sword display dimensions
+            const swordW = 24;  // Width up from 16
+            const swordH = 52;  // Height up from 32
             
-            // Normal distance from body, pushes out further if swinging
-            let offset = 12;
-            if (id === socket.id && attackVisualTimer > 0) offset = 22; 
+            // CHANGED: Pushed out the basic offset so it is clearly visible
+            let offset = 20;
+            if (id === socket.id && attackVisualTimer > 0) offset = 32; 
 
-            // Drawing the sword image (pointing down relative to the transformed grid)
-            ctx.drawImage(swordImg, -swordW / 2, offset, swordW, swordH);
+            // CHANGED: Shifted slightly to the right (-12 -> -4) to position it into a "hand" instead of perfectly dead center
+            ctx.drawImage(swordImg, -swordW / 4, offset, swordW, swordH);
             
             ctx.restore();
         }
