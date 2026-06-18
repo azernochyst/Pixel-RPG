@@ -64,6 +64,11 @@ socket.on("loginResponse", (data) => {
     if (data.success) {
         loginScreen.style.display = "none";
         myName = data.username;
+        
+        // JAVÍTVA: A szerver által küldött adatok alapján beállítjuk a helyi kamerát/játékost
+        me.x = data.x;
+        me.y = data.y;
+
         gameStarted = true;
     } else {
         if (data.message === "Ez a felhasználónév már foglalt!") {
@@ -110,12 +115,9 @@ let chatBubbles = {};
 let myDirection = "down"; 
 let attackVisualTimer = 0; 
 
+// JAVÍTVA: Csak a listát frissítjük, a 'me.x' már a loginResponse-ből jön!
 socket.on("players", (data) => { 
     players = data; 
-    if (players[socket.id] && me.x === 100 && me.y === 100) {
-        me.x = players[socket.id].x;
-        me.y = players[socket.id].y;
-    }
 });
 
 /* =========================
@@ -182,8 +184,8 @@ socket.on("chat", (data) => {
 /* =========================
    INPUTS & MOVEMENT
 ========================= */
-let keys = { w:false,a:false,s:false,d:false };
-let mobile = { w:false,a:false,s:false,d:false };
+let keys = { w:false, a:false, s:false, d:false };
+let mobile = { w:false, a:false, s:false, d:false };
 
 function localAttack() {
     socket.emit("attack");
@@ -308,11 +310,10 @@ function draw() {
         ctx.fillStyle = (id === socket.id) ? "red" : "blue";
         ctx.fillRect(x, y, size, size);
 
-        // 2. DRAW SWORD (ANIME / BUSTER SIZE & CORRECT HAND POSITION)
+        // 2. DRAW SWORD
         if (swordImg.complete && swordImg.naturalWidth > 0) {
             ctx.save();
             
-            // A forgatási középpontot a karakter jobb alsó "kezéhez" igazítjuk (beljebb tova a testen)
             const handX = x + size - 14; 
             const handY = y + size - 14; 
             ctx.translate(handX, handY);
@@ -320,27 +321,23 @@ function draw() {
             let dir = p.direction || "down";
             
             let angle = 0;
-            if (dir === "down") angle = 0;                     
+            if (dir === "down") angle = 0;                    
             if (dir === "up") angle = Math.PI;                
             if (dir === "left") angle = Math.PI / 2;          
             if (dir === "right") angle = -Math.PI / 2;         
 
-            // Támadás suhintás animáció
             if (id === socket.id && attackVisualTimer > 0) {
                 angle += Math.sin((attackVisualTimer / 10) * Math.PI) * 1.2; 
             }
 
             ctx.rotate(angle);
 
-            // GIGANTIKUS MÉRET: 96x96 pixelre növelve, hogy kompenzáljuk a kép transzparens széleit!
             const swordW = 96;  
             const swordH = 96;  
             
-            // Az eltolással elértük, hogy a 96x96-os textúra sarkában lévő markolat pontosan a handX/handY ponthoz ragadjon
             let swingOffset = 0;
             if (id === socket.id && attackVisualTimer > 0) swingOffset = 10; 
 
-            // Újraszámolt pivot eltolás, hogy a nyél mélyen a piros négyzetbe lógjon
             ctx.drawImage(swordImg, -swordW / 2 + 10, -swordH / 2 + 14 + swingOffset, swordW, swordH);
             
             ctx.restore();

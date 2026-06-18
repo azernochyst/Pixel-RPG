@@ -10,19 +10,20 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-// 1. ADATBÁZIS LÉTREHOZÁSA / MEGNYITÁSA
-// Létrehoz egy 'database.db' fájlt a projekt mappájában, ha még nincs ott.
+// 1. ADATBÁZIS LÉTREHOZÁSA (Bővítve x, y, hp oszlopokkal)
 const db = new sqlite3.Database("./database.db", (err) => {
     if (err) console.error("Adatbázis hiba:", err.message);
     else console.log("Sikeresen kapcsolódva az SQLite adatbázishoz.");
 });
 
-// 2. FELHASZNÁLÓI TÁBLA LÉTREHOZÁSA
-// Biztosítja, hogy a szükséges struktúra (id, egyedi név, titkosított jelszó) meglegyen.
+// Új oszlopok: x, y, hp (Alapértelmezett értékekkel)
 db.run(`CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE,
-    password TEXT
+    password TEXT,
+    x REAL DEFAULT 100.0,
+    y REAL DEFAULT 100.0,
+    hp INTEGER DEFAULT 100
 )`);
 
 const players = {};
@@ -30,7 +31,7 @@ const players = {};
 io.on("connection", (socket) => {
     console.log("Player connected:", socket.id);
 
-    // REGISZTRÁCIÓ KEZELÉSE (ADATBÁZISSAL)
+    // REGISZTRÁCIÓ KEZELÉSE
     socket.on("register", async (data) => {
         if (!data || !data.username || !data.password) {
             return socket.emit("loginResponse", { success: false, message: "Hiányzó adatok!" });
@@ -43,32 +44,31 @@ io.on("connection", (socket) => {
         }
 
         try {
-            // Jelszó biztonságos titkosítása
             const hashedPassword = await bcrypt.hash(password, 10);
-
-            // Megpróbáljuk beszúrni az új rekordot az adatbázisba
             const sql = `INSERT INTO users (username, password) VALUES (?, ?)`;
+            
             db.run(sql, [username, hashedPassword], function (err) {
                 if (err) {
-                    // Ha a hibaüzenet tartalmazza, hogy 'UNIQUE', az azt jelenti a név már létezik
                     if (err.message.includes("UNIQUE")) {
                         return socket.emit("loginResponse", { success: false, message: "Ez a felhasználónév már foglalt!" });
                     }
                     return socket.emit("loginResponse", { success: false, message: "Adatbázis hiba történt." });
                 }
 
-                console.log(`Új felhasználó regisztrálva az adatbázisba: ${username}`);
-                socket.emit("loginResponse", { success: true, username: username });
+                console.log(`Új felhasználó regisztrálva: ${username}`);
                 
-                // Játékos inicializálása a világban
-                initPlayer(socket, username);
+                // JAVÍTVA: Fix kezdő koordinátákat is küldünk
+                socket.emit("loginResponse", { success: true, username: username, x: 100, y: 100 });
+                
+                // Új játékos inicializálása alapértelmezett koordinátákkal
+                initPlayer(socket, username, 100, 100, 100);
             });
         } catch (e) {
             socket.emit("loginResponse", { success: false, message: "Szerver hiba a regisztráció során." });
         }
     });
 
-    // BELÉPÉS KEZELÉSE (ADATBÁZISSAL)
+    // BELÉPÉS KEZELÉSE
     socket.on("login", (data) => {
         if (!data || !data.username || !data.password) {
             return socket.emit("loginResponse", { success: false, message: "Hiányzó adatok!" });
@@ -76,7 +76,6 @@ io.on("connection", (socket) => {
         const username = data.username.trim().substring(0, 15);
         const password = data.password.trim();
 
-        // Kikérjük a felhasználót a név alapján
         const sql = `SELECT * FROM users WHERE username = ?`;
         db.get(sql, [username], async (err, row) => {
             if (err) {
@@ -86,52 +85,57 @@ io.on("connection", (socket) => {
                 return socket.emit("loginResponse", { success: false, message: "Nincs ilyen felhasználó! Regisztrálj előbb." });
             }
 
-            // Összehasonlítjuk a beírt nyers jelszót az adatbázisban lévő titkosított jelszóval
-            const match = await bcrypt.compare(password, row.password);
-            if (match) {
-                // Sikeres belépés
-                socket.emit("loginResponse", { success: true, username: username });
-                
-                // Játékos inicializálása a világban
-                initPlayer(socket, username);
-            } else {
-                socket.emit("loginResponse", { success: false, message: "Hibás jelszó!" });
+            try {
+                const match = await bcrypt.compare(password, row.password);
+                if (match) {
+                    // JAVÍTVA: Biztonsági háló! Ha régi az adatbázis és nincs x, y, hp, akkor 100-ra állítja.
+                    const startX = row.x ?? 100;
+                    const startY = row.y ?? 100;
+                    const startHp = row.hp ?? 100;
+
+                    // JAVÍTVA: Elküldjük a biztonságos koordinátákat a kliensnek
+                    socket.emit("loginResponse", { success: true, username: username, x: startX, y: startY });
+                    
+                    initPlayer(socket, username, startX, startY, startHp);
+                } else {
+                    socket.emit("loginResponse", { success: false, message: "Hibás jelszó!" });
+                }
+            } catch (bcryptErr) {
+                socket.emit("loginResponse", { success: false, message: "Szerver hiba a belépés során." });
             }
         });
     });
 
-    // Közös segédfüggvény a játékos világba helyezéséhez
-    function initPlayer(socket, username) {
+    function initPlayer(socket, username, savedX, savedY, savedHp) {
         players[socket.id] = {
-            x: 100 + Math.random() * 200,
-            y: 100 + Math.random() * 200,
+            dbUsername: username, 
+            x: savedX ?? 100, // Dupla védelem a szerveren
+            y: savedY ?? 100,
             name: username,
-            hp: 100,
+            hp: savedHp ?? 100,
             isAdmin: false,
             lastAttackTime: 0
         };
         io.emit("players", players);
     }
 
+    socket.on("move", (data) => {
+        if (!players[socket.id]) return;
+        players[socket.id].x = data.x;
+        players[socket.id].y = data.y;
+        players[socket.id].direction = data.direction; // Ezt is áthozzuk a kard irányához
+    });
+
     socket.on("changeName", (newName) => {
         if (players[socket.id]) {
             players[socket.id].name = newName.toString().substring(0, 15);
-            io.emit("players", players);
         }
     });
 
     socket.on("adminCommand", (cmd) => {
         if (players[socket.id] && players[socket.id].name === "Azern" && cmd === "/azern") {
             players[socket.id].isAdmin = true;
-            io.emit("players", players);
         }
-    });
-
-    socket.on("move", (data) => {
-        if (!players[socket.id]) return;
-        players[socket.id].x = data.x;
-        players[socket.id].y = data.y;
-        io.emit("players", players);
     });
 
     socket.on("chat", (msg) => {
@@ -146,9 +150,7 @@ io.on("connection", (socket) => {
         if (!attacker) return;
 
         const now = Date.now();
-        if (attacker.lastAttackTime && (now - attacker.lastAttackTime < 1000)) {
-            return;
-        }
+        if (attacker.lastAttackTime && (now - attacker.lastAttackTime < 1000)) return;
         attacker.lastAttackTime = now;
 
         const range = 60;
@@ -167,14 +169,32 @@ io.on("connection", (socket) => {
                 }
             }
         }
-        io.emit("players", players);
     });
 
+    // KILÉPÉSKOR KIMENTJÜK AZ ÁLLÁST AZ ADATBÁZISBA
     socket.on("disconnect", () => {
-        delete players[socket.id];
-        io.emit("players", players);
+        const p = players[socket.id];
+        if (p && p.dbUsername) {
+            const sql = `UPDATE users SET x = ?, y = ?, hp = ? WHERE username = ?`;
+            db.run(sql, [p.x, p.y, p.hp, p.dbUsername], (err) => {
+                if (err) console.error("Hiba a játékos mentésekor:", err.message);
+                else console.log(`Játékos állása elmentve: ${p.dbUsername}`);
+                
+                delete players[socket.id];
+                io.emit("players", players);
+            });
+        } else {
+            delete players[socket.id];
+            io.emit("players", players);
+        }
     });
 });
+
+setInterval(() => {
+    if (Object.keys(players).length > 0) {
+        io.emit("players", players);
+    }
+}, 50); 
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
